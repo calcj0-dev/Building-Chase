@@ -1,23 +1,26 @@
 # Building Chase - Roadmap
 
 - **最終ゴール**: スマホアプリ化（Capacitor による Android / iOS）
-- **動作確認**: 各フェーズの完了確認はブラウザ（PC + スマホ幅のレスポンシブ表示）で行う
+- **動作確認**: 各フェーズの完了確認はブラウザ（PC + スマホ幅のレスポンシブ表示）で行う。Vercel のデプロイ（スマホ実機のブラウザ）でも確認する
 - **優先度**: 🔴 P0 = 遊べるゲームの成立に必須 / 🟡 P1 = リリース品質に必要 / 🟢 P2 = 仕上げ・あると良い
+- **バージョン**: push ごとに PATCH +1、フェーズ完了で MINOR +1、一般公開で v1.0.0（[document.md](document.md) 5.1.1 / [CHANGELOG.md](CHANGELOG.md)）
 - 仕様は [document.md](document.md) を参照
 
 ---
 
 ## Phase 0: 開発環境セットアップ 🔴 P0
-- [ ] Vite + React + TypeScript でプロジェクト作成
-- [ ] Tailwind CSS 導入
-- [ ] Zustand 導入
-- [ ] Vitest 導入（`npm test` で実行できる）
-- [ ] i18next + react-i18next 導入（`ja.json` / `en.json`、デフォルト日本語）
-- [ ] ESLint / Prettier 設定
-- [ ] ディレクトリ構成作成（`src/core/` ロジック / `src/ui/` 画面 / `src/ai/` CPU / `src/audio/` 音）
-- [ ] `.gitignore` 整備、初回コミット & push
+- [x] Vite + React + TypeScript でプロジェクト作成
+- [x] Tailwind CSS 導入
+- [x] Zustand 導入
+- [x] Vitest 導入（`npm test` で実行できる）
+- [x] i18next + react-i18next 導入（`ja.json` / `en.json`、デフォルト日本語）
+- [x] oxlint / Prettier 設定
+- [x] ディレクトリ構成作成（`src/core/` ロジック / `src/ui/` 画面 / `src/ai/` CPU / `src/audio/` 音 / `src/storage/` 保存 / `src/i18n/` 翻訳）
+- [x] `.gitignore` 整備、初回コミット & push
+- [x] バージョン管理の開始（v0.0.0 タグ、`CHANGELOG.md`）
+- [ ] Vercel に GitHub リポジトリを連携（**Vercel ダッシュボードでの操作が必要**。Framework Preset: Vite）
 
-**完了確認**: `npm run dev` でブラウザに空ページが表示される
+**完了確認**: `npm run dev` でブラウザに空ページが表示される。Vercel の URL でも同じページが表示される
 
 ---
 
