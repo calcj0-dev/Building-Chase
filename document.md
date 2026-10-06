@@ -235,7 +235,7 @@
 ### 5.4. ゲームロジックの設計
 - ゲームロジックはUIから分離した純粋なTypeScriptモジュール（`src/core/`）とする。
   - `GameState`: 盤面・パトカー位置・車位置・痕跡・発見済み痕跡・ラウンド・フェーズ・勝敗
-  - `Action`: `PlacePolice` / `ThiefMove` / `PoliceMove` / `PoliceSearch`
+  - `Action`: `placePolice` / `runnerMove` / `policeMove` / `policeSearch`
   - `applyAction(state, action)`: 新しい状態を返す（イミュータブル）
   - `getLegalActions(state)`: 現在合法な行動一覧
   - `getView(state, role)`: 陣営ごとに見える情報だけを抽出した状態（警察視点では車の位置と未発見の痕跡を含めない）
