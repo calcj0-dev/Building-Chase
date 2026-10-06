@@ -2,6 +2,12 @@
 
 バージョン規則は [document.md](document.md) 5.1.1 を参照（push ごとに PATCH +1 / フェーズ完了で MINOR +1 / 一般公開で v1.0.0）。
 
+## [0.1.0] - 2026-10-06
+Phase 0（開発環境セットアップ）完了。
+
+### Added
+- Vercel 連携（`main` への push で自動デプロイ）。本番: https://building-chase.vercel.app
+
 ## [0.0.1] - 2026-10-06
 ### Added
 - Vite + React + TypeScript プロジェクト（strict モード）

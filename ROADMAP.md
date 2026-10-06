@@ -5,10 +5,11 @@
 - **優先度**: 🔴 P0 = 遊べるゲームの成立に必須 / 🟡 P1 = リリース品質に必要 / 🟢 P2 = 仕上げ・あると良い
 - **バージョン**: push ごとに PATCH +1、フェーズ完了で MINOR +1、一般公開で v1.0.0（[document.md](document.md) 5.1.1 / [CHANGELOG.md](CHANGELOG.md)）
 - 仕様は [document.md](document.md) を参照
+- 本番（ブラウザ版）: https://building-chase.vercel.app
 
 ---
 
-## Phase 0: 開発環境セットアップ 🔴 P0
+## Phase 0: 開発環境セットアップ 🔴 P0 ✅ v0.1.0
 - [x] Vite + React + TypeScript でプロジェクト作成
 - [x] Tailwind CSS 導入
 - [x] Zustand 導入
@@ -18,7 +19,7 @@
 - [x] ディレクトリ構成作成（`src/core/` ロジック / `src/ui/` 画面 / `src/ai/` CPU / `src/audio/` 音 / `src/storage/` 保存 / `src/i18n/` 翻訳）
 - [x] `.gitignore` 整備、初回コミット & push
 - [x] バージョン管理の開始（v0.0.0 タグ、`CHANGELOG.md`）
-- [ ] Vercel に GitHub リポジトリを連携（**Vercel ダッシュボードでの操作が必要**。Framework Preset: Vite）
+- [x] Vercel に GitHub リポジトリを連携（本番: https://building-chase.vercel.app ）
 
 **完了確認**: `npm run dev` でブラウザに空ページが表示される。Vercel の URL でも同じページが表示される
 
