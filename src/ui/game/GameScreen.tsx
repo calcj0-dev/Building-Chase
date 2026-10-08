@@ -10,6 +10,7 @@ import {
   useGameStore,
   viewRole,
 } from '../../store/gameStore'
+import { useSettingsStore } from '../../store/settingsStore'
 import { Board } from './Board'
 import { ControlPanel } from './ControlPanel'
 import { GameOverBanner, HandoffOverlay } from './Overlays'
@@ -23,6 +24,8 @@ export function GameScreen() {
   const store = useGameStore()
   const { game, humanSide } = store
   const cpuTurn = isCpuTurn(store)
+  const viewMode = useSettingsStore((s) => s.viewMode)
+  const setViewMode = useSettingsStore((s) => s.setViewMode)
 
   useEffect(() => {
     if (!cpuTurn) return
@@ -51,7 +54,7 @@ export function GameScreen() {
             <span className="text-[10px] font-bold tracking-[0.2em] text-slate-400">
               {t(`phase.${game.phase}`)}
             </span>
-            <span className="font-mono text-xl font-extrabold tracking-wide">
+            <span className="font-mono text-xl font-extrabold tracking-wide whitespace-nowrap">
               {game.round === 0
                 ? t('header.setupRound')
                 : t('header.round', {
@@ -60,9 +63,18 @@ export function GameScreen() {
                   })}
             </span>
           </div>
+          {/* 仮の視点切り替え。Phase 4 で設定画面へ移す */}
+          <button
+            type="button"
+            onClick={() => setViewMode(viewMode === 'top' ? 'tilt' : 'top')}
+            className="ml-auto min-h-9 shrink-0 rounded-full border border-white/15 px-3 text-xs font-bold whitespace-nowrap text-slate-200"
+            aria-label={t('viewMode.label')}
+          >
+            {t(`viewMode.${viewMode}`)}
+          </button>
           {turnLabel && (
             <span
-              className={`flex items-center gap-2 rounded-full px-3.5 py-1.5 text-sm font-bold shadow-lg ${
+              className={`flex shrink-0 items-center gap-2 rounded-full px-3 py-1.5 text-sm font-bold whitespace-nowrap shadow-lg ${
                 cpuTurn
                   ? 'bg-slate-700 text-slate-200'
                   : turn === 'runner'
@@ -81,6 +93,7 @@ export function GameScreen() {
       <main className="flex flex-1 flex-col items-center justify-center">
         <Board
           view={view}
+          viewMode={viewMode}
           highlightedBuildings={highlightedBuildings(store)}
           highlightedIntersections={highlightedIntersections(store)}
           selectableHelicopters={selectableHelicopters(store)}

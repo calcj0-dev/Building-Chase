@@ -7,6 +7,7 @@ import {
   type IntersectionId,
   type VisibleTrace,
 } from '../../core'
+import type { ViewMode } from '../../store/settingsStore'
 import { HELICOPTER_COLORS, TRACE_COLORS } from '../theme'
 import {
   CELL,
@@ -17,15 +18,21 @@ import {
   SLAB,
   WORLD_SIZE,
   buildingBox,
+  groundScaleY,
   intersectionGround,
   isLargeBuilding,
   points,
+  project,
   roofCenter,
   viewBox,
+  wallScale,
+  windowLit,
 } from './geometry'
 
 interface BoardProps {
   view: GameView
+  /** 盤面の視点（真上 / 正面から浅く傾ける） */
+  viewMode: ViewMode
   highlightedBuildings: BuildingId[]
   highlightedIntersections: IntersectionId[]
   selectableHelicopters: HelicopterIndex[]
@@ -42,6 +49,7 @@ interface BoardProps {
 
 export function Board({
   view,
+  viewMode: mode,
   highlightedBuildings,
   highlightedIntersections,
   selectableHelicopters,
@@ -59,7 +67,7 @@ export function Board({
 
   return (
     <svg
-      viewBox={viewBox()}
+      viewBox={viewBox(mode)}
       // ヘッダーと操作パネルが常に画面内に収まるよう、盤面の高さに上限を設ける
       className="h-auto max-h-[calc(100dvh-23rem)] w-full touch-manipulation select-none"
       role="img"
@@ -76,15 +84,13 @@ export function Board({
         </linearGradient>
       </defs>
 
-      <Ground />
+      <Ground mode={mode} />
 
-      {/* ビルとヘリコプターの影（地面に落ちる） */}
-      {ALL_BUILDINGS.map((id) => (
-        <BuildingShadow key={`bs${id}`} id={id} />
-      ))}
+      {/* ビルとヘリコプターの影（地面に落ちる）。真上の視点ではビルの高さを影で表す */}
+      {mode === 'top' && ALL_BUILDINGS.map((id) => <BuildingShadow key={`bs${id}`} id={id} />)}
       {view.helicopters.map((at, i) => {
         if (at === null) return null
-        const g = intersectionGround(at)
+        const g = intersectionGround(mode, at)
         return (
           <g
             key={`hs${i}`}
@@ -100,6 +106,7 @@ export function Board({
       {ALL_BUILDINGS.map((id) => (
         <Building
           key={`b${id}`}
+          mode={mode}
           id={id}
           highlighted={highlightedBuildings.includes(id)}
           onTap={onTapBuilding}
@@ -109,6 +116,7 @@ export function Board({
       {ALL_BUILDINGS.map((id) => (
         <RoofItems
           key={`r${id}`}
+          mode={mode}
           id={id}
           trace={traceByBuilding.get(id)}
           hasRunner={view.runnerPosition === id}
@@ -118,7 +126,7 @@ export function Board({
 
       {showRoute && route.length > 1 && (
         <polyline
-          points={points(route.map((b) => roofCenter(b)))}
+          points={points(route.map((b) => roofCenter(mode, b)))}
           fill="none"
           stroke="#f8fafc"
           strokeWidth={4}
@@ -129,7 +137,7 @@ export function Board({
           pointerEvents="none"
         />
       )}
-      {showRoute && <RouteNumbers traces={view.traces} />}
+      {showRoute && <RouteNumbers mode={mode} traces={view.traces} />}
 
       {view.helicopters.map((at, i) => {
         if (at === null) return null
@@ -137,6 +145,7 @@ export function Board({
         return (
           <Helicopter
             key={`h${helicopter}`}
+            mode={mode}
             helicopter={helicopter}
             at={at}
             acted={view.phase === 'police' && view.actedHelicopters[helicopter]}
@@ -150,7 +159,7 @@ export function Board({
 
       {/* 選べる交差点は最前面に表示し、ヘリコプターの下でもタップできるようにする */}
       {ALL_INTERSECTIONS.filter((id) => highlightedIntersections.includes(id)).map((id) => {
-        const g = intersectionGround(id)
+        const g = intersectionGround(mode, id)
         return (
           <g
             key={`i${id}`}
@@ -180,39 +189,63 @@ export function Board({
   )
 }
 
-/** 地面: 土台、道路の中央線、横断歩道、交差点 */
-function Ground() {
+/** 地面: 土台、道路の中央線、交差点 */
+function Ground({ mode }: { mode: ViewMode }) {
   const lanes = [1, 2, 3, 4]
+  const sy = groundScaleY(mode)
   return (
     <g pointerEvents="none">
       {/* 土台の厚み（手前側） */}
-      <rect x={0} y={WORLD_SIZE - 8} width={WORLD_SIZE} height={SLAB + 8} rx={10} fill="#0b1220" />
-      {/* 道路（アスファルト） */}
       <rect
+        x={0}
+        y={WORLD_SIZE * sy - 8}
         width={WORLD_SIZE}
-        height={WORLD_SIZE}
+        height={SLAB + 8}
         rx={10}
-        fill="url(#bc-plate)"
-        stroke="#334155"
-        strokeWidth={2}
+        fill="#0b1220"
       />
-      {lanes.map((k) => (
-        <g key={k} stroke="#cbd5e1" strokeWidth={2.5} strokeDasharray="10 12" opacity={0.4}>
-          <line x1={k * CELL} y1={0} x2={k * CELL} y2={WORLD_SIZE} />
-          <line x1={0} y1={k * CELL} x2={WORLD_SIZE} y2={k * CELL} />
-        </g>
-      ))}
+      <g transform={`scale(1, ${sy})`}>
+        {/* 道路（アスファルト） */}
+        <rect
+          width={WORLD_SIZE}
+          height={WORLD_SIZE}
+          rx={10}
+          fill="url(#bc-plate)"
+          stroke="#334155"
+          strokeWidth={2}
+        />
+        {lanes.map((k) => (
+          <g key={k} stroke="#cbd5e1" strokeWidth={2.5} strokeDasharray="10 12" opacity={0.4}>
+            <line x1={k * CELL} y1={0} x2={k * CELL} y2={WORLD_SIZE} />
+            <line x1={0} y1={k * CELL} x2={WORLD_SIZE} y2={k * CELL} />
+          </g>
+        ))}
+      </g>
       {ALL_INTERSECTIONS.map((id) => {
-        const g = intersectionGround(id)
-        return <circle key={id} cx={g.x} cy={g.y} r={7} fill="#94a3b8" opacity={0.8} />
+        const g = intersectionGround(mode, id)
+        return (
+          <ellipse key={id} cx={g.x} cy={g.y} rx={7} ry={7 * sy} fill="#94a3b8" opacity={0.8} />
+        )
       })}
     </g>
   )
 }
 
 const BUILDING_COLORS = {
-  large: { roof: '#4b5f82', parapet: '#7b93bd', inner: '#3c4d6c', fixture: '#2a3852' },
-  small: { roof: '#56688b', parapet: '#8aa0c8', inner: '#4a5b7c', fixture: '#33415e' },
+  large: {
+    roof: '#4b5f82',
+    parapet: '#7b93bd',
+    inner: '#3c4d6c',
+    fixture: '#2a3852',
+    wall: '#2b3a55',
+  },
+  small: {
+    roof: '#56688b',
+    parapet: '#8aa0c8',
+    inner: '#4a5b7c',
+    fixture: '#33415e',
+    wall: '#334363',
+  },
 }
 
 /** 高いビルほど長い影を右下に落とす */
@@ -233,20 +266,27 @@ function BuildingShadow({ id }: { id: BuildingId }) {
   )
 }
 
-/** ビル（真上から見た屋上） */
+/** ビル: 屋上（どちらの視点でも）と、傾けた視点では手前の壁 */
 function Building({
+  mode,
   id,
   highlighted,
   onTap,
 }: {
+  mode: ViewMode
   id: BuildingId
   highlighted: boolean
   onTap(id: BuildingId): void
 }) {
-  const { x0, y0 } = buildingBox(id)
+  const { x0, y0, y1, h } = buildingBox(id)
   const large = isLargeBuilding(id)
   const colors = large ? BUILDING_COLORS.large : BUILDING_COLORS.small
   const inset = 6
+  // 屋上は「左上の位置 + 縦の縮み」で描く（屋上の中は 0〜FOOTPRINT のローカル座標）
+  const roofTop = project(mode, x0, y0, h)
+  const sy = groundScaleY(mode)
+  const roofBottomY = project(mode, x0, y1, h).y
+  const wallHeight = h * wallScale(mode)
   return (
     <g
       data-building={id}
@@ -254,77 +294,130 @@ function Building({
       onClick={highlighted ? () => onTap(id) : undefined}
       className={highlighted ? 'cursor-pointer' : undefined}
     >
-      {/* 屋上の外周（パラペット）と内側の床 */}
-      <rect
-        x={x0}
-        y={y0}
-        width={FOOTPRINT}
-        height={FOOTPRINT}
-        rx={6}
-        fill={colors.roof}
-        stroke={colors.parapet}
-        strokeWidth={2}
-      />
-      <rect
-        x={x0 + inset}
-        y={y0 + inset}
-        width={FOOTPRINT - inset * 2}
-        height={FOOTPRINT - inset * 2}
-        rx={3}
-        fill={colors.inner}
-        pointerEvents="none"
-      />
-      {/* 屋上の設備（見た目だけ） */}
-      {large ? (
-        <g pointerEvents="none">
-          <rect x={x0 + 10} y={y0 + 10} width={20} height={15} rx={2} fill={colors.fixture} />
-          <circle cx={x0 + FOOTPRINT - 15} cy={y0 + FOOTPRINT - 15} r={6} fill={colors.fixture} />
-          <circle
-            cx={x0 + FOOTPRINT - 15}
-            cy={y0 + FOOTPRINT - 15}
-            r={2.5}
-            fill={colors.parapet}
-            opacity={0.6}
-          />
-        </g>
-      ) : (
-        <g pointerEvents="none">
-          <rect
-            x={x0 + FOOTPRINT - 22}
-            y={y0 + 10}
-            width={11}
-            height={9}
-            rx={2}
-            fill={colors.fixture}
-          />
-        </g>
+      {wallHeight > 0 && (
+        <FrontWall id={id} x={x0} y={roofBottomY} height={wallHeight} color={colors.wall} />
       )}
-      {highlighted && (
+      <g transform={`translate(${roofTop.x}, ${roofTop.y}) scale(1, ${sy})`}>
+        {/* 屋上の外周（パラペット）と内側の床 */}
+        <rect
+          x={0}
+          y={0}
+          width={FOOTPRINT}
+          height={FOOTPRINT}
+          rx={6}
+          fill={colors.roof}
+          stroke={colors.parapet}
+          strokeWidth={2}
+        />
+        <rect
+          x={inset}
+          y={inset}
+          width={FOOTPRINT - inset * 2}
+          height={FOOTPRINT - inset * 2}
+          rx={3}
+          fill={colors.inner}
+          pointerEvents="none"
+        />
+        {/* 屋上の設備（見た目だけ） */}
+        {large ? (
+          <g pointerEvents="none">
+            <rect x={10} y={10} width={20} height={15} rx={2} fill={colors.fixture} />
+            <circle cx={FOOTPRINT - 15} cy={FOOTPRINT - 15} r={6} fill={colors.fixture} />
+            <circle
+              cx={FOOTPRINT - 15}
+              cy={FOOTPRINT - 15}
+              r={2.5}
+              fill={colors.parapet}
+              opacity={0.6}
+            />
+          </g>
+        ) : (
+          <g pointerEvents="none">
+            <rect x={FOOTPRINT - 22} y={10} width={11} height={9} rx={2} fill={colors.fixture} />
+          </g>
+        )}
+        {highlighted && (
+          <rect
+            className="bc-glow"
+            pointerEvents="none"
+            x={-2}
+            y={-2}
+            width={FOOTPRINT + 4}
+            height={FOOTPRINT + 4}
+            rx={8}
+            fill="#fde68a"
+            fillOpacity={0.45}
+            stroke="#fde68a"
+            strokeWidth={4}
+          />
+        )}
+      </g>
+      {highlighted && wallHeight > 0 && (
         <rect
           className="bc-glow"
           pointerEvents="none"
-          x={x0 - 2}
-          y={y0 - 2}
-          width={FOOTPRINT + 4}
-          height={FOOTPRINT + 4}
-          rx={8}
+          x={x0}
+          y={roofBottomY}
+          width={FOOTPRINT}
+          height={wallHeight}
           fill="#fde68a"
-          fillOpacity={0.45}
-          stroke="#fde68a"
-          strokeWidth={4}
+          fillOpacity={0.25}
         />
       )}
     </g>
   )
 }
 
+/** 傾けた視点で見えるビルの手前の壁（窓明かり付き） */
+function FrontWall({
+  id,
+  x,
+  y,
+  height,
+  color,
+}: {
+  id: BuildingId
+  x: number
+  y: number
+  height: number
+  color: string
+}) {
+  const floors = Math.max(1, Math.floor(height / 7))
+  const cols = [8, 22, 36, 50]
+  return (
+    <g>
+      <rect x={x} y={y} width={FOOTPRINT} height={height} fill={color} />
+      <g pointerEvents="none">
+        {Array.from({ length: floors }, (_, f) =>
+          cols.map((u, k) => {
+            const lit = windowLit(id, f, k)
+            return (
+              <rect
+                key={`${f}-${k}`}
+                x={x + u}
+                y={y + 3 + f * 7}
+                width={8}
+                height={4}
+                fill={lit ? '#fcd34d' : '#16203a'}
+                opacity={lit ? 0.85 : 1}
+              />
+            )
+          }),
+        )}
+      </g>
+    </g>
+  )
+}
+
 /** 屋上に置くもの: 痕跡コマと逃亡者 */
 function RoofItems({
+  mode,
   id,
   trace,
   hasRunner,
   showRoute,
 }: {
+  mode: ViewMode
   id: BuildingId
   trace: VisibleTrace | undefined
   hasRunner: boolean
@@ -332,8 +425,10 @@ function RoofItems({
 }) {
   const q = FOOTPRINT / 4
   // 逃亡者と痕跡が同じビルにあるときは重ならないようにずらす
-  const tracePos = hasRunner && !showRoute ? roofCenter(id, -q, -q) : roofCenter(id)
-  const runnerPos = showRoute ? roofCenter(id, q, q * 1.4) : roofCenter(id, q / 2, q * 1.2)
+  const tracePos = hasRunner && !showRoute ? roofCenter(mode, id, -q, -q) : roofCenter(mode, id)
+  const runnerPos = showRoute
+    ? roofCenter(mode, id, q, q * 1.4)
+    : roofCenter(mode, id, q / 2, q * 1.2)
   return (
     <g pointerEvents="none">
       {trace && !showRoute && <TraceToken trace={trace} x={tracePos.x} y={tracePos.y} />}
@@ -362,11 +457,11 @@ function TraceToken({ trace, x, y }: { trace: VisibleTrace; x: number; y: number
 }
 
 /** 答え合わせ: ルートの番号を屋上に表示 */
-function RouteNumbers({ traces }: { traces: VisibleTrace[] }) {
+function RouteNumbers({ mode, traces }: { mode: ViewMode; traces: VisibleTrace[] }) {
   return (
     <g pointerEvents="none">
       {traces.map((t) => {
-        const p = roofCenter(t.building)
+        const p = roofCenter(mode, t.building)
         return <TraceToken key={t.building} trace={t} x={p.x} y={p.y} />
       })}
     </g>
@@ -418,6 +513,7 @@ function Villain({ x, y }: { x: number; y: number }) {
 
 /** 警察のヘリコプター（横から見たイラスト。交差点の上空を飛んでいる） */
 function Helicopter({
+  mode,
   helicopter,
   at,
   acted,
@@ -426,6 +522,7 @@ function Helicopter({
   hitArea,
   onTap,
 }: {
+  mode: ViewMode
   helicopter: HelicopterIndex
   at: IntersectionId
   acted: boolean
@@ -434,7 +531,7 @@ function Helicopter({
   hitArea: 'wide' | 'compact' | 'none'
   onTap(helicopter: HelicopterIndex): void
 }) {
-  const g = intersectionGround(at)
+  const g = intersectionGround(mode, at)
   const body = acted ? '#64748b' : HELICOPTER_COLORS[helicopter]
   const outline = '#0f172a'
   const tappable = selectable && hitArea !== 'none'

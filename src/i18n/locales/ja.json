@@ -63,5 +63,10 @@
     "runner": "逃亡者で遊ぶ（VS CPU）",
     "police": "警察で遊ぶ（VS CPU）",
     "hotseat": "2人で遊ぶ（1台の端末）"
+  },
+  "viewMode": {
+    "label": "盤面の視点を切り替える",
+    "top": "真上",
+    "tilt": "斜め"
   }
 }
