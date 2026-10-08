@@ -34,48 +34,65 @@ export function GameScreen() {
   const view = getView(game, viewRole(store))
   const turn = currentRole(game)
 
+  const turnLabel =
+    turn === null
+      ? null
+      : humanSide === 'both'
+        ? t('header.turn', { role: t(`role.${turn}`) })
+        : isHumanTurn(store)
+          ? t('header.yourTurn')
+          : t('header.cpuThinking')
+
   return (
-    <div className="relative mx-auto flex h-full max-w-xl flex-col gap-3 p-3">
-      <header className="flex flex-col gap-2">
-        <div className="flex items-center justify-between text-sm">
-          <span className="font-mono font-bold">
-            {game.round === 0
-              ? t('header.setupRound')
-              : t('header.round', {
-                  round: String(game.round).padStart(2, '0'),
-                  max: MAX_ROUNDS,
-                })}
-          </span>
-          <span className="text-slate-300">{t(`phase.${game.phase}`)}</span>
-          {turn && (
+    <div className="relative mx-auto flex min-h-full max-w-xl flex-col gap-2 px-3 pt-[max(12px,env(safe-area-inset-top))] pb-[max(12px,env(safe-area-inset-bottom))]">
+      <header className="bc-card flex flex-col gap-3 rounded-2xl p-3">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-col leading-tight">
+            <span className="text-[10px] font-bold tracking-[0.2em] text-slate-400">
+              {t(`phase.${game.phase}`)}
+            </span>
+            <span className="font-mono text-xl font-extrabold tracking-wide">
+              {game.round === 0
+                ? t('header.setupRound')
+                : t('header.round', {
+                    round: String(game.round).padStart(2, '0'),
+                    max: MAX_ROUNDS,
+                  })}
+            </span>
+          </div>
+          {turnLabel && (
             <span
-              className={`rounded-full px-3 py-0.5 font-bold ${
-                cpuTurn ? 'bg-slate-600' : turn === 'runner' ? 'bg-red-600' : 'bg-sky-600'
+              className={`flex items-center gap-2 rounded-full px-3.5 py-1.5 text-sm font-bold shadow-lg ${
+                cpuTurn
+                  ? 'bg-slate-700 text-slate-200'
+                  : turn === 'runner'
+                    ? 'bg-red-600 shadow-red-900/50'
+                    : 'bg-sky-600 shadow-sky-900/50'
               }`}
             >
-              {humanSide === 'both'
-                ? t('header.turn', { role: t(`role.${turn}`) })
-                : isHumanTurn(store)
-                  ? t('header.yourTurn')
-                  : t('header.cpuThinking')}
+              {cpuTurn && <span className="size-2 animate-pulse rounded-full bg-slate-300" />}
+              {turnLabel}
             </span>
           )}
         </div>
         <RoundBoard traceCount={view.traceCount} round={game.round} />
       </header>
 
-      <main className="flex flex-1 flex-col items-center justify-start gap-3">
+      <main className="flex flex-1 flex-col items-center justify-center">
         <Board
           view={view}
           highlightedBuildings={highlightedBuildings(store)}
           highlightedIntersections={highlightedIntersections(store)}
           selectableCars={selectableCars(store)}
           selectedCar={store.selectedCar}
-          compactCarHitArea={store.mode !== null}
+          policeMode={store.mode}
           onTapBuilding={store.tapBuilding}
           onTapIntersection={store.tapIntersection}
           onTapPoliceCar={store.tapPoliceCar}
         />
+      </main>
+
+      <footer className="bc-card flex min-h-32 flex-col items-center justify-center gap-3 rounded-2xl p-3">
         <ControlPanel />
         {game.winner && game.endReason && (
           <GameOverBanner
@@ -86,7 +103,7 @@ export function GameScreen() {
             onChangeSide={store.backToSelect}
           />
         )}
-      </main>
+      </footer>
 
       {store.handoffTo && (
         <HandoffOverlay role={store.handoffTo} onDismiss={store.dismissHandoff} />

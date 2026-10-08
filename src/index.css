@@ -8,10 +8,44 @@ body,
 
 body {
   margin: 0;
-  background: #0f172a;
+  /* 夜の街: 上空はわずかに明るく、足元は暗い */
+  background:
+    radial-gradient(ellipse 120% 70% at 50% 0%, #1e2a4a 0%, transparent 60%),
+    radial-gradient(ellipse 90% 50% at 50% 100%, #0b1a33 0%, transparent 70%), #070b16;
+  background-attachment: fixed;
   color: #f8fafc;
   font-family: system-ui, 'Segoe UI', 'Hiragino Sans', 'Noto Sans JP', sans-serif;
   -webkit-tap-highlight-color: transparent;
+}
+
+/* 半透明のカード */
+.bc-card {
+  border: 1px solid rgb(255 255 255 / 0.08);
+  background: rgb(15 23 42 / 0.72);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 10px 30px -12px rgb(0 0 0 / 0.6);
+}
+
+/* 捜索結果などの通知の出現 */
+@keyframes bc-pop {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.bc-pop {
+  animation: bc-pop 220ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bc-pop {
+    animation: none;
+  }
 }
 
 /* 選択できる候補の発光 */
@@ -45,5 +79,27 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .bc-move {
     transition: none;
+  }
+}
+
+/* パトカーの回転灯 */
+@keyframes bc-siren {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0.35;
+  }
+}
+
+.bc-siren {
+  animation: bc-siren 0.9s steps(1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bc-siren {
+    animation: none;
   }
 }

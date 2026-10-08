@@ -7,21 +7,21 @@ export function RoundBoard({ traceCount, round }: { traceCount: number; round: n
   const { t } = useTranslation()
   const slots = Array.from({ length: MAX_ROUNDS }, (_, i) => i + 1)
   return (
-    <ol aria-label={t('roundBoard.label')} className="flex flex-wrap justify-center gap-1">
+    <ol aria-label={t('roundBoard.label')} className="grid grid-cols-11 gap-1">
       {slots.map((n) => {
-        const color = traceColorForRound(n)
+        const color = TRACE_COLORS[traceColorForRound(n)]
         const used = n <= traceCount
         const current = n === round
         return (
           <li
             key={n}
-            className={`flex size-7 items-center justify-center rounded-full border-2 text-xs font-bold ${
-              current ? 'border-white' : 'border-slate-600'
+            className={`flex aspect-square items-center justify-center rounded-full text-[11px] font-extrabold transition-colors ${
+              current ? 'ring-2 ring-white ring-offset-2 ring-offset-slate-900' : ''
             }`}
             style={
               used
-                ? { color: TRACE_COLORS[color] }
-                : { backgroundColor: TRACE_COLORS[color], color: '#0f172a' }
+                ? { color, boxShadow: `inset 0 0 0 2px ${color}55`, background: '#0f172a' }
+                : { background: color, color: '#0f172a', boxShadow: `0 0 10px -2px ${color}` }
             }
           >
             {n}
