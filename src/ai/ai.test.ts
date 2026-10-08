@@ -48,7 +48,7 @@ describe('inferRunner', () => {
     const b = inferRunner({
       traceCount: 1,
       traces: [],
-      searchLog: [{ round: 1, car: 0, building: 12, outcome: 'nothing' }],
+      searchLog: [{ round: 1, helicopter: 0, building: 12, outcome: 'nothing' }],
     })
     expect(b.pathCount).toBe(24)
     expect(b.here[12]).toBe(0)
@@ -58,7 +58,7 @@ describe('inferRunner', () => {
     const b = inferRunner({
       traceCount: 2,
       traces: [],
-      searchLog: [{ round: 1, car: 0, building: 12, outcome: 'nothing' }],
+      searchLog: [{ round: 1, helicopter: 0, building: 12, outcome: 'nothing' }],
     })
     expect(b.here[12]).toBeGreaterThan(0) // 2手目で入った可能性はある
     expect(b.visited[12]).toBe(0) // 1手目にいた可能性はない
@@ -68,7 +68,7 @@ describe('inferRunner', () => {
     const b = inferRunner({
       traceCount: 2,
       traces: [{ building: 12, color: 'yellow', round: 1, found: true }],
-      searchLog: [{ round: 2, car: 0, building: 12, outcome: 'trace' }],
+      searchLog: [{ round: 2, helicopter: 0, building: 12, outcome: 'trace' }],
     })
     expect(b.pathCount).toBe(4)
     expect([7, 11, 13, 17].every((x) => b.here[x] === 0.25)).toBe(true)
@@ -91,8 +91,8 @@ describe('police AI', () => {
     const rng = seededRng(7)
     let s = createGame()
     while (s.phase === 'setup') s = applyAction(s, choosePoliceAction(getView(s, 'police'), rng))
-    expect(new Set(s.policeCars).size).toBe(3)
-    expect(s.policeCars.every((p) => p !== null && [5, 6, 9, 10].includes(p))).toBe(true)
+    expect(new Set(s.helicopters).size).toBe(3)
+    expect(s.helicopters.every((p) => p !== null && [5, 6, 9, 10].includes(p))).toBe(true)
   })
 
   it('decides the same way whatever the hidden runner position is', () => {
@@ -113,20 +113,20 @@ describe('police AI', () => {
   })
 
   it('searches where the runner can be once the start point is known', () => {
-    // パトカー: 交差点5（ビル 6, 7, 11, 12）/ 6（7, 8, 12, 13）/ 10（12, 13, 17, 18）
+    // ヘリコプター: 交差点5（ビル 6, 7, 11, 12）/ 6（7, 8, 12, 13）/ 10（12, 13, 17, 18）
     let s = placeAll([5, 6, 10])
     s = applyAction(s, { type: 'runnerMove', building: 12 })
-    s = applyAction(s, { type: 'policeSearch', car: 0, building: 6 })
-    s = applyAction(s, { type: 'policeSearch', car: 1, building: 8 })
-    s = applyAction(s, { type: 'policeSearch', car: 2, building: 18 })
+    s = applyAction(s, { type: 'policeSearch', helicopter: 0, building: 6 })
+    s = applyAction(s, { type: 'policeSearch', helicopter: 1, building: 8 })
+    s = applyAction(s, { type: 'policeSearch', helicopter: 2, building: 18 })
     // Round 2: 逃亡者は 12 → 7。黄の痕跡（ビル12）を発見し、17 は空振り
     s = applyAction(s, { type: 'runnerMove', building: 7 })
-    s = applyAction(s, { type: 'policeSearch', car: 1, building: 12 })
-    s = applyAction(s, { type: 'policeSearch', car: 2, building: 17 })
+    s = applyAction(s, { type: 'policeSearch', helicopter: 1, building: 12 })
+    s = applyAction(s, { type: 'policeSearch', helicopter: 2, building: 17 })
     // 警察の推理: 逃亡者は 12 の隣（7, 11, 13）のどれか
     const belief = inferRunner(getView(s, 'police'))
     expect(belief.pathCount).toBe(3)
-    // 残るパトカー0（ビル 6, 7, 11, 12 に接する）は 7 か 11 を捜索するはず
+    // 残るヘリコプター0（ビル 6, 7, 11, 12 に接する）は 7 か 11 を捜索するはず
     for (let seed = 1; seed <= 10; seed++) {
       const action = choosePoliceAction(getView(s, 'police'), seededRng(seed))
       expect(action.type).toBe('policeSearch')

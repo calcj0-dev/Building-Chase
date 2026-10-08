@@ -23,14 +23,14 @@
     "label": "ラウンドボード"
   },
   "policeCar": {
-    "name": "パトカー{{number}}"
+    "name": "ヘリコプター{{number}}"
   },
   "instruction": {
-    "setup": "パトカー{{number}}を置く交差点をタップしてください",
+    "setup": "ヘリコプター{{number}}を置く交差点をタップしてください",
     "runnerStart": "スタートするビルをタップしてください",
     "runnerMove": "移動するビルをタップしてください",
-    "policeSelectCar": "行動するパトカーをタップしてください",
-    "policeChooseAction": "パトカー{{number}}の行動を選んでください",
+    "policeSelectHelicopter": "行動するヘリコプターをタップしてください",
+    "policeChooseAction": "ヘリコプター{{number}}の行動を選んでください",
     "policeMove": "移動先の交差点をタップしてください",
     "policeSearch": "捜索するビルをタップしてください"
   },
@@ -40,10 +40,10 @@
     "back": "戻る"
   },
   "search": {
-    "nothing": "パトカー{{number}}の捜索: 何もなかった",
-    "trace": "パトカー{{number}}の捜索: 痕跡を発見！",
-    "traceSpecial": "パトカー{{number}}の捜索: 重要な痕跡を発見！（{{round}}番目）",
-    "car": "逮捕！"
+    "nothing": "ヘリコプター{{number}}の捜索: 何もなかった",
+    "trace": "ヘリコプター{{number}}の捜索: 痕跡を発見！",
+    "traceSpecial": "ヘリコプター{{number}}の捜索: 重要な痕跡を発見！（{{round}}番目）",
+    "arrested": "逮捕！"
   },
   "handoff": {
     "title": "{{role}}の番です",

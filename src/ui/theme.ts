@@ -1,7 +1,7 @@
-import type { PoliceCarIndex, TraceColor } from '../core'
+import type { HelicopterIndex, TraceColor } from '../core'
 
-/** パトカーの識別色（原作のヘリコプターの色: ピンク / 黄 / 緑） */
-export const POLICE_CAR_COLORS: Record<PoliceCarIndex, string> = {
+/** ヘリコプターの識別色（原作どおり ピンク / 黄 / 緑） */
+export const HELICOPTER_COLORS: Record<HelicopterIndex, string> = {
   0: '#ec4899',
   1: '#eab308',
   2: '#22c55e',
@@ -12,5 +12,3 @@ export const TRACE_COLORS: Record<TraceColor, string> = {
   red: '#ef4444',
   blue: '#3b82f6',
 }
-
-export const RUNNER_CAR_COLOR = '#dc2626'

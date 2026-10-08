@@ -9,7 +9,7 @@ import {
   INTERSECTION_NEIGHBORS,
   INTERSECTIONS_AROUND_BUILDING,
   MAX_ROUNDS,
-  POLICE_CAR_COUNT,
+  HELICOPTER_COUNT,
   buildingAt,
   buildingPoint,
   intersectionAt,
@@ -30,7 +30,7 @@ describe('board constants', () => {
     expect(ALL_BUILDINGS).toHaveLength(25)
     expect(ALL_INTERSECTIONS).toHaveLength(16)
     expect(MAX_ROUNDS).toBe(11)
-    expect(POLICE_CAR_COUNT).toBe(3)
+    expect(HELICOPTER_COUNT).toBe(3)
   })
 })
 

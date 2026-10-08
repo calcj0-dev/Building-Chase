@@ -18,7 +18,7 @@ import type { GameState } from './types'
 // 15 16 17 18 19     12 13 14 15
 // 20 21 22 23 24
 
-// 逃亡者のルートと重ならない位置にパトカーを置き、毎ラウンド無関係なビルを捜索させる
+// 逃亡者のルートと重ならない位置にヘリコプターを置き、毎ラウンド無関係なビルを捜索させる
 const FAR_CARS: [number, number, number] = [15, 12, 3]
 const IDLE_SEARCHES: [number, number, number] = [24, 20, 4]
 
@@ -31,7 +31,7 @@ describe('createGame', () => {
     const s = createGame()
     expect(s.phase).toBe('setup')
     expect(s.round).toBe(0)
-    expect(s.policeCars).toEqual([null, null, null])
+    expect(s.helicopters).toEqual([null, null, null])
     expect(s.runnerPosition).toBeNull()
     expect(s.traces).toEqual([])
     expect(currentRole(s)).toBe('police')
@@ -47,13 +47,13 @@ describe('traceColorForRound', () => {
 })
 
 describe('setup phase', () => {
-  it('lets police place each car on any free intersection', () => {
+  it('lets police place each helicopter on any free intersection', () => {
     expect(getLegalActions(createGame())).toHaveLength(3 * 16)
   })
 
   it('moves to round 1 runner phase after all 3 cars are placed', () => {
     const s = placeAll([0, 5, 10])
-    expect(s.policeCars).toEqual([0, 5, 10])
+    expect(s.helicopters).toEqual([0, 5, 10])
     expect(s.phase).toBe('runner')
     expect(s.round).toBe(1)
     expect(currentRole(s)).toBe('runner')
@@ -61,30 +61,30 @@ describe('setup phase', () => {
 
   it('allows placing cars in any order', () => {
     const s = applyAll(createGame(), [
-      { type: 'placePolice', car: 2, intersection: 7 },
-      { type: 'placePolice', car: 0, intersection: 1 },
+      { type: 'placePolice', helicopter: 2, intersection: 7 },
+      { type: 'placePolice', helicopter: 0, intersection: 1 },
     ])
     expect(s.phase).toBe('setup')
-    expect(s.policeCars).toEqual([1, null, 7])
+    expect(s.helicopters).toEqual([1, null, 7])
   })
 
   it('rejects two cars on the same intersection', () => {
-    const s = applyAction(createGame(), { type: 'placePolice', car: 0, intersection: 4 })
-    expect(() => applyAction(s, { type: 'placePolice', car: 1, intersection: 4 })).toThrow(
+    const s = applyAction(createGame(), { type: 'placePolice', helicopter: 0, intersection: 4 })
+    expect(() => applyAction(s, { type: 'placePolice', helicopter: 1, intersection: 4 })).toThrow(
       IllegalActionError,
     )
   })
 
-  it('rejects placing the same car twice', () => {
-    const s = applyAction(createGame(), { type: 'placePolice', car: 0, intersection: 4 })
-    expect(() => applyAction(s, { type: 'placePolice', car: 0, intersection: 5 })).toThrow(
+  it('rejects placing the same helicopter twice', () => {
+    const s = applyAction(createGame(), { type: 'placePolice', helicopter: 0, intersection: 4 })
+    expect(() => applyAction(s, { type: 'placePolice', helicopter: 0, intersection: 5 })).toThrow(
       IllegalActionError,
     )
   })
 
   it('rejects out-of-range intersections', () => {
     expect(() =>
-      applyAction(createGame(), { type: 'placePolice', car: 0, intersection: 16 }),
+      applyAction(createGame(), { type: 'placePolice', helicopter: 0, intersection: 16 }),
     ).toThrow(IllegalActionError)
   })
 
@@ -139,78 +139,78 @@ describe('runner phase', () => {
 
 describe('police phase', () => {
   function policePhase(): GameState {
-    // パトカー: 0, 5, 10 / 逃亡者: ビル 24
+    // ヘリコプター: 0, 5, 10 / 逃亡者: ビル 24
     return applyAction(placeAll([0, 5, 10]), { type: 'runnerMove', building: 24 })
   }
 
-  it('offers orthogonal moves to free intersections plus 4 searches per car', () => {
+  it('offers orthogonal moves to free intersections plus 4 searches per helicopter', () => {
     const actions = getLegalActions(policePhase())
-    const car0 = actions.filter((a) => 'car' in a && a.car === 0)
+    const car0 = actions.filter((a) => 'helicopter' in a && a.helicopter === 0)
     // 交差点 0 の隣は 1 と 4（どちらも空き）+ 捜索 4棟
     expect(car0).toHaveLength(2 + 4)
-    const car1 = actions.filter((a) => 'car' in a && a.car === 1)
+    const car1 = actions.filter((a) => 'helicopter' in a && a.helicopter === 1)
     // 交差点 5 の隣は 1, 4, 6, 9（すべて空き）+ 捜索 4棟
     expect(car1).toHaveLength(4 + 4)
   })
 
-  it('moves a car to an adjacent free intersection', () => {
-    const s = applyAction(policePhase(), { type: 'policeMove', car: 0, intersection: 1 })
-    expect(s.policeCars).toEqual([1, 5, 10])
-    expect(s.actedCars).toEqual([true, false, false])
+  it('moves a helicopter to an adjacent free intersection', () => {
+    const s = applyAction(policePhase(), { type: 'policeMove', helicopter: 0, intersection: 1 })
+    expect(s.helicopters).toEqual([1, 5, 10])
+    expect(s.actedHelicopters).toEqual([true, false, false])
     expect(s.phase).toBe('police')
   })
 
   it('rejects diagonal moves, long moves and occupied intersections', () => {
     const s = policePhase()
-    expect(() => applyAction(s, { type: 'policeMove', car: 1, intersection: 0 })).toThrow(
+    expect(() => applyAction(s, { type: 'policeMove', helicopter: 1, intersection: 0 })).toThrow(
       IllegalActionError,
     ) // 斜め
-    expect(() => applyAction(s, { type: 'policeMove', car: 0, intersection: 2 })).toThrow(
+    expect(() => applyAction(s, { type: 'policeMove', helicopter: 0, intersection: 2 })).toThrow(
       IllegalActionError,
     ) // 2マス先
-    const s2 = applyAction(s, { type: 'policeMove', car: 0, intersection: 4 })
-    expect(() => applyAction(s2, { type: 'policeMove', car: 1, intersection: 4 })).toThrow(
+    const s2 = applyAction(s, { type: 'policeMove', helicopter: 0, intersection: 4 })
+    expect(() => applyAction(s2, { type: 'policeMove', helicopter: 1, intersection: 4 })).toThrow(
       IllegalActionError,
     ) // 使用中
   })
 
-  it('lets a car move into an intersection another car just left', () => {
-    let s = applyAction(policePhase(), { type: 'policeMove', car: 1, intersection: 6 })
-    s = applyAction(s, { type: 'policeMove', car: 0, intersection: 1 })
-    s = applyAction(s, { type: 'policeMove', car: 2, intersection: 9 })
-    expect(s.policeCars).toEqual([1, 6, 9])
+  it('lets a helicopter move into an intersection another helicopter just left', () => {
+    let s = applyAction(policePhase(), { type: 'policeMove', helicopter: 1, intersection: 6 })
+    s = applyAction(s, { type: 'policeMove', helicopter: 0, intersection: 1 })
+    s = applyAction(s, { type: 'policeMove', helicopter: 2, intersection: 9 })
+    expect(s.helicopters).toEqual([1, 6, 9])
   })
 
-  it('rejects searching a building not around the car', () => {
+  it('rejects searching a building not around the helicopter', () => {
     expect(() =>
-      applyAction(policePhase(), { type: 'policeSearch', car: 0, building: 12 }),
+      applyAction(policePhase(), { type: 'policeSearch', helicopter: 0, building: 12 }),
     ).toThrow(IllegalActionError)
   })
 
-  it('rejects a second action from the same car in one round', () => {
-    const s = applyAction(policePhase(), { type: 'policeMove', car: 0, intersection: 1 })
-    expect(() => applyAction(s, { type: 'policeSearch', car: 0, building: 1 })).toThrow(
+  it('rejects a second action from the same helicopter in one round', () => {
+    const s = applyAction(policePhase(), { type: 'policeMove', helicopter: 0, intersection: 1 })
+    expect(() => applyAction(s, { type: 'policeSearch', helicopter: 0, building: 1 })).toThrow(
       IllegalActionError,
     )
-    expect(getLegalActions(s).some((a) => 'car' in a && a.car === 0)).toBe(false)
+    expect(getLegalActions(s).some((a) => 'helicopter' in a && a.helicopter === 0)).toBe(false)
   })
 
   it('lets cars act in any order', () => {
-    let s = applyAction(policePhase(), { type: 'policeSearch', car: 2, building: 12 })
-    s = applyAction(s, { type: 'policeSearch', car: 0, building: 0 })
-    expect(s.actedCars).toEqual([true, false, true])
+    let s = applyAction(policePhase(), { type: 'policeSearch', helicopter: 2, building: 12 })
+    s = applyAction(s, { type: 'policeSearch', helicopter: 0, building: 0 })
+    expect(s.actedHelicopters).toEqual([true, false, true])
   })
 
   it('starts the next round after all 3 cars act', () => {
     const s = searchAll(policePhase(), [0, 6, 12])
     expect(s.phase).toBe('runner')
     expect(s.round).toBe(2)
-    expect(s.actedCars).toEqual([false, false, false])
+    expect(s.actedHelicopters).toEqual([false, false, false])
   })
 
   it('rejects police actions during the runner phase', () => {
     expect(() =>
-      applyAction(startedGame(), { type: 'policeMove', car: 0, intersection: 11 }),
+      applyAction(startedGame(), { type: 'policeMove', helicopter: 0, intersection: 11 }),
     ).toThrow(IllegalActionError)
   })
 })
@@ -219,20 +219,20 @@ describe('search', () => {
   it('finds nothing in an empty building', () => {
     const s = applyAction(applyAction(placeAll([0, 5, 10]), { type: 'runnerMove', building: 24 }), {
       type: 'policeSearch',
-      car: 0,
+      helicopter: 0,
       building: 0,
     })
-    expect(s.searchLog).toEqual([{ round: 1, car: 0, building: 0, outcome: 'nothing' }])
+    expect(s.searchLog).toEqual([{ round: 1, helicopter: 0, building: 0, outcome: 'nothing' }])
     expect(s.phase).toBe('police')
   })
 
   it('reveals a trace left in an earlier round', () => {
-    // 逃亡者: 6 → 7。パトカー0（交差点0）がビル6を捜索
+    // 逃亡者: 6 → 7。ヘリコプター0（交差点0）がビル6を捜索
     let s = placeAll([0, 3, 15])
     s = applyAction(s, { type: 'runnerMove', building: 6 })
     s = searchAll(s, [0, 3, 24])
     s = applyAction(s, { type: 'runnerMove', building: 7 })
-    s = applyAction(s, { type: 'policeSearch', car: 0, building: 6 })
+    s = applyAction(s, { type: 'policeSearch', helicopter: 0, building: 6 })
     expect(s.traces[0]).toEqual({ round: 1, building: 6, found: true })
     expect(s.traces[1].found).toBe(false)
     expect(s.searchLog.at(-1)?.outcome).toBe('trace')
@@ -243,26 +243,26 @@ describe('search', () => {
     s = applyAction(s, { type: 'runnerMove', building: 6 })
     s = searchAll(s, [0, 3, 24])
     s = applyAction(s, { type: 'runnerMove', building: 7 })
-    s = applyAction(s, { type: 'policeSearch', car: 0, building: 6 })
-    s = applyAction(s, { type: 'policeMove', car: 1, intersection: 2 })
-    s = applyAction(s, { type: 'policeSearch', car: 2, building: 24 })
+    s = applyAction(s, { type: 'policeSearch', helicopter: 0, building: 6 })
+    s = applyAction(s, { type: 'policeMove', helicopter: 1, intersection: 2 })
+    s = applyAction(s, { type: 'policeSearch', helicopter: 2, building: 24 })
     s = applyAction(s, { type: 'runnerMove', building: 8 })
-    s = applyAction(s, { type: 'policeSearch', car: 0, building: 6 })
+    s = applyAction(s, { type: 'policeSearch', helicopter: 0, building: 6 })
     expect(s.searchLog.at(-1)?.outcome).toBe('trace')
     expect(s.traces[0].found).toBe(true)
   })
 
-  it('arrests the runner when the car is found and ends the game immediately', () => {
+  it('arrests the runner when the helicopter is found and ends the game immediately', () => {
     let s = placeAll([0, 3, 15])
     s = applyAction(s, { type: 'runnerMove', building: 6 })
-    s = applyAction(s, { type: 'policeSearch', car: 0, building: 6 })
+    s = applyAction(s, { type: 'policeSearch', helicopter: 0, building: 6 })
     expect(s.phase).toBe('ended')
     expect(s.winner).toBe('police')
     expect(s.endReason).toBe('arrested')
-    expect(s.searchLog.at(-1)?.outcome).toBe('car')
+    expect(s.searchLog.at(-1)?.outcome).toBe('runner')
     expect(currentRole(s)).toBeNull()
     expect(getLegalActions(s)).toEqual([])
-    expect(() => applyAction(s, { type: 'policeSearch', car: 1, building: 3 })).toThrow(
+    expect(() => applyAction(s, { type: 'policeSearch', helicopter: 1, building: 3 })).toThrow(
       IllegalActionError,
     )
   })
@@ -287,13 +287,13 @@ describe('game end', () => {
   it('can still arrest the runner during the round 11 police phase', () => {
     let s = playRounds(startedGame(), [0, 1, 2, 7, 6, 5, 10, 11, 12, 13], IDLE_SEARCHES)
     s = applyAction(s, { type: 'runnerMove', building: 14 })
-    s = applyAction(s, { type: 'policeMove', car: 2, intersection: 7 }) // 交差点7はビル8,9,13,14に接する
-    s = applyAction(s, { type: 'policeSearch', car: 0, building: 24 })
+    s = applyAction(s, { type: 'policeMove', helicopter: 2, intersection: 7 }) // 交差点7はビル8,9,13,14に接する
+    s = applyAction(s, { type: 'policeSearch', helicopter: 0, building: 24 })
     expect(s.phase).toBe('police')
-    expect(() => applyAction(s, { type: 'policeSearch', car: 2, building: 14 })).toThrow(
+    expect(() => applyAction(s, { type: 'policeSearch', helicopter: 2, building: 14 })).toThrow(
       IllegalActionError,
     ) // 行動済み
-    s = applyAction(s, { type: 'policeMove', car: 1, intersection: 13 })
+    s = applyAction(s, { type: 'policeMove', helicopter: 1, intersection: 13 })
     expect(s.winner).toBe('runner')
   })
 
@@ -312,9 +312,9 @@ describe('immutability', () => {
     const s0 = startedGame()
     const snapshot = structuredClone(s0)
     const s1 = applyAction(s0, { type: 'runnerMove', building: 3 })
-    applyAction(s1, { type: 'policeMove', car: 0, intersection: 11 })
+    applyAction(s1, { type: 'policeMove', helicopter: 0, intersection: 11 })
     expect(s0).toEqual(snapshot)
     expect(s1.traces).toHaveLength(1)
-    expect(s1.actedCars).toEqual([false, false, false])
+    expect(s1.actedHelicopters).toEqual([false, false, false])
   })
 })

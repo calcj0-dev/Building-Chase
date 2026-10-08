@@ -1,6 +1,6 @@
 import type { BuildingId, IntersectionId } from './board'
 import { applyAction, createGame } from './game'
-import type { Action, GameState, PoliceCarIndex } from './types'
+import type { Action, GameState, HelicopterIndex } from './types'
 
 export function applyAll(state: GameState, actions: Action[]): GameState {
   return actions.reduce(applyAction, state)
@@ -12,9 +12,9 @@ export function placeAll(
 ): GameState {
   return applyAll(
     state,
-    intersections.map((intersection, car) => ({
+    intersections.map((intersection, helicopter) => ({
       type: 'placePolice',
-      car: car as PoliceCarIndex,
+      helicopter: helicopter as HelicopterIndex,
       intersection,
     })),
   )
@@ -27,9 +27,9 @@ export function searchAll(
 ): GameState {
   return applyAll(
     state,
-    buildings.map((building, car) => ({
+    buildings.map((building, helicopter) => ({
       type: 'policeSearch',
-      car: car as PoliceCarIndex,
+      helicopter: helicopter as HelicopterIndex,
       building,
     })),
   )

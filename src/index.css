@@ -71,7 +71,7 @@ body {
   }
 }
 
-/* パトカー・車の移動アニメーション */
+/* ヘリ・車の移動アニメーション */
 .bc-move {
   transition: transform 350ms ease-in-out;
 }
@@ -82,7 +82,7 @@ body {
   }
 }
 
-/* パトカーの回転灯 */
+/* ヘリの回転灯 */
 @keyframes bc-siren {
   0%,
   49% {
@@ -100,6 +100,75 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .bc-siren {
+    animation: none;
+  }
+}
+
+/* ヘリコプター: ローターの回転とホバリング */
+/* メインローターは横から見ているので、羽根が伸び縮みして回って見える */
+@keyframes bc-main-rotor {
+  0%,
+  100% {
+    transform: scaleX(1);
+  }
+  50% {
+    transform: scaleX(0.12);
+  }
+}
+
+.bc-main-rotor {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: bc-main-rotor 0.28s linear infinite;
+}
+
+@keyframes bc-tail-rotor {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.bc-tail-rotor {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: bc-tail-rotor 0.3s linear infinite;
+}
+
+@keyframes bc-hover {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+.bc-hover {
+  animation: bc-hover 2.2s ease-in-out infinite;
+}
+
+@keyframes bc-shadow {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(0.88);
+  }
+}
+
+.bc-shadow {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: bc-shadow 2.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bc-main-rotor,
+  .bc-tail-rotor,
+  .bc-hover,
+  .bc-shadow {
     animation: none;
   }
 }

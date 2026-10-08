@@ -15,8 +15,8 @@ export interface GameView {
   role: Role
   phase: Phase
   round: number
-  policeCars: (IntersectionId | null)[]
-  actedCars: boolean[]
+  helicopters: (IntersectionId | null)[]
+  actedHelicopters: boolean[]
   /** 警察視点では決着まで常に null */
   runnerPosition: BuildingId | null
   traces: VisibleTrace[]
@@ -47,8 +47,8 @@ export function getView(state: GameState, role: Role): GameView {
     role,
     phase: state.phase,
     round: state.round,
-    policeCars: [...state.policeCars],
-    actedCars: [...state.actedCars],
+    helicopters: [...state.helicopters],
+    actedHelicopters: [...state.actedHelicopters],
     runnerPosition: revealAll ? state.runnerPosition : null,
     traces,
     traceCount: state.traces.length,

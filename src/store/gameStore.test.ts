@@ -7,9 +7,9 @@ import {
   initialStoreState,
   isCpuTurn,
   isHumanTurn,
-  nextCarToPlace,
+  nextHelicopterToPlace,
   reduceStore,
-  selectableCars,
+  selectableHelicopters,
   viewRole,
   type GameStoreState,
   type StoreEvent,
@@ -35,13 +35,13 @@ const PLACE_ALL: StoreEvent[] = [
 describe('setup', () => {
   it('places cars 1 → 2 → 3 on tapped intersections', () => {
     let s = initialStoreState()
-    expect(nextCarToPlace(s.game)).toBe(0)
+    expect(nextHelicopterToPlace(s.game)).toBe(0)
     expect(highlightedIntersections(s)).toHaveLength(16)
     s = run([{ type: 'tapIntersection', intersection: 0 }], s)
-    expect(nextCarToPlace(s.game)).toBe(1)
+    expect(nextHelicopterToPlace(s.game)).toBe(1)
     expect(highlightedIntersections(s)).not.toContain(0)
     s = run(PLACE_ALL.slice(1), s)
-    expect(s.game.policeCars).toEqual([0, 5, 10])
+    expect(s.game.helicopters).toEqual([0, 5, 10])
     expect(s.game.phase).toBe('runner')
   })
 
@@ -50,7 +50,7 @@ describe('setup', () => {
       { type: 'tapIntersection', intersection: 0 },
       { type: 'tapIntersection', intersection: 0 },
     ])
-    expect(s.game.policeCars).toEqual([0, null, null])
+    expect(s.game.helicopters).toEqual([0, null, null])
   })
 
   it('asks to hand the device to the runner after setup', () => {
@@ -79,8 +79,8 @@ describe('runner turn', () => {
 })
 
 function searchAllEvents(buildings: [number, number, number]): StoreEvent[] {
-  return buildings.flatMap((building, car) => [
-    { type: 'tapPoliceCar', car: car as 0 | 1 | 2 },
+  return buildings.flatMap((building, helicopter) => [
+    { type: 'tapHelicopter', helicopter: helicopter as 0 | 1 | 2 },
     { type: 'chooseMode', mode: 'search' },
     { type: 'tapBuilding', building },
   ])
@@ -96,13 +96,13 @@ describe('police turn', () => {
     ])
   }
 
-  it('highlights nothing until a car and an action are chosen', () => {
+  it('highlights nothing until a helicopter and an action are chosen', () => {
     let s = policeTurn()
-    expect(selectableCars(s)).toEqual([0, 1, 2])
+    expect(selectableHelicopters(s)).toEqual([0, 1, 2])
     expect(highlightedIntersections(s)).toEqual([])
     expect(highlightedBuildings(s)).toEqual([])
 
-    s = run([{ type: 'tapPoliceCar', car: 0 }], s)
+    s = run([{ type: 'tapHelicopter', helicopter: 0 }], s)
     expect(highlightedIntersections(s)).toEqual([])
 
     s = run([{ type: 'chooseMode', mode: 'move' }], s)
@@ -113,45 +113,45 @@ describe('police turn', () => {
     expect(highlightedIntersections(s)).toEqual([])
   })
 
-  it('lets the player change the car or action before the final tap', () => {
+  it('lets the player change the helicopter or action before the final tap', () => {
     let s = run(
       [
-        { type: 'tapPoliceCar', car: 0 },
+        { type: 'tapHelicopter', helicopter: 0 },
         { type: 'chooseMode', mode: 'move' },
-        { type: 'tapPoliceCar', car: 1 },
+        { type: 'tapHelicopter', helicopter: 1 },
       ],
       policeTurn(),
     )
-    expect(s.selectedCar).toBe(1)
+    expect(s.selectedHelicopter).toBe(1)
     expect(s.mode).toBeNull()
 
     s = run([{ type: 'chooseMode', mode: 'search' }, { type: 'cancelSelection' }], s)
-    expect(s.selectedCar).toBe(1)
+    expect(s.selectedHelicopter).toBe(1)
     expect(s.mode).toBeNull()
     s = run([{ type: 'cancelSelection' }], s)
-    expect(s.selectedCar).toBeNull()
+    expect(s.selectedHelicopter).toBeNull()
   })
 
-  it('confirms a move with the final tap and marks the car as acted', () => {
+  it('confirms a move with the final tap and marks the helicopter as acted', () => {
     const s = run(
       [
-        { type: 'tapPoliceCar', car: 0 },
+        { type: 'tapHelicopter', helicopter: 0 },
         { type: 'chooseMode', mode: 'move' },
         { type: 'tapIntersection', intersection: 1 },
       ],
       policeTurn(),
     )
-    expect(s.game.policeCars).toEqual([1, 5, 10])
-    expect(s.game.actedCars).toEqual([true, false, false])
-    expect(s.selectedCar).toBeNull()
-    expect(selectableCars(s)).toEqual([1, 2])
-    expect(run([{ type: 'tapPoliceCar', car: 0 }], s).selectedCar).toBeNull()
+    expect(s.game.helicopters).toEqual([1, 5, 10])
+    expect(s.game.actedHelicopters).toEqual([true, false, false])
+    expect(s.selectedHelicopter).toBeNull()
+    expect(selectableHelicopters(s)).toEqual([1, 2])
+    expect(run([{ type: 'tapHelicopter', helicopter: 0 }], s).selectedHelicopter).toBeNull()
   })
 
   it('records the last search result until the next action', () => {
     let s = run(searchAllEvents([0, 6, 12]).slice(0, 3), policeTurn())
-    expect(s.lastSearch).toEqual({ round: 1, car: 0, building: 0, outcome: 'nothing' })
-    s = run([{ type: 'tapPoliceCar', car: 1 }], s)
+    expect(s.lastSearch).toEqual({ round: 1, helicopter: 0, building: 0, outcome: 'nothing' })
+    s = run([{ type: 'tapHelicopter', helicopter: 1 }], s)
     expect(s.lastSearch).not.toBeNull()
     s = run(
       [
@@ -169,19 +169,19 @@ describe('police turn', () => {
     expect(s.handoffTo).toBe('runner')
   })
 
-  it('ends the game without a handoff when the car is found', () => {
+  it('ends the game without a handoff when the helicopter is found', () => {
     let s = run([
       ...PLACE_ALL,
       { type: 'dismissHandoff' },
       { type: 'tapBuilding', building: 6 },
       { type: 'dismissHandoff' },
-      { type: 'tapPoliceCar', car: 0 },
+      { type: 'tapHelicopter', helicopter: 0 },
       { type: 'chooseMode', mode: 'search' },
       { type: 'tapBuilding', building: 6 },
     ])
     expect(s.game.phase).toBe('ended')
     expect(s.game.winner).toBe('police')
-    expect(s.lastSearch?.outcome).toBe('car')
+    expect(s.lastSearch?.outcome).toBe('runner')
     expect(s.handoffTo).toBeNull()
     s = run([{ type: 'newGame' }], s)
     expect(s.game.phase).toBe('setup')
@@ -223,11 +223,11 @@ describe('VS CPU', () => {
       if (isCpuTurn(s)) {
         s = reduceStore(s, { type: 'cpuStep', rng })
       } else {
-        // 人の警察: 毎回パトカー1 から順にその場で捜索
-        const car = selectableCars(s)[0]
+        // 人の警察: 毎回ヘリコプター1 から順にその場で捜索
+        const helicopter = selectableHelicopters(s)[0]
         s = run(
           [
-            { type: 'tapPoliceCar', car },
+            { type: 'tapHelicopter', helicopter },
             { type: 'chooseMode', mode: 'search' },
           ],
           s,

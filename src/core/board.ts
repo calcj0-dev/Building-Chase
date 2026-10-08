@@ -6,7 +6,7 @@ export const INTERSECTION_GRID_SIZE = BUILDING_GRID_SIZE - 1
 export const BUILDING_COUNT = BUILDING_GRID_SIZE * BUILDING_GRID_SIZE
 export const INTERSECTION_COUNT = INTERSECTION_GRID_SIZE * INTERSECTION_GRID_SIZE
 export const MAX_ROUNDS = 11
-export const POLICE_CAR_COUNT = 3
+export const HELICOPTER_COUNT = 3
 
 export type BuildingId = number
 export type IntersectionId = number

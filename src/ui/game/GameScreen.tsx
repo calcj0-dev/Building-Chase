@@ -6,7 +6,7 @@ import {
   highlightedIntersections,
   isCpuTurn,
   isHumanTurn,
-  selectableCars,
+  selectableHelicopters,
   useGameStore,
   viewRole,
 } from '../../store/gameStore'
@@ -15,7 +15,7 @@ import { ControlPanel } from './ControlPanel'
 import { GameOverBanner, HandoffOverlay } from './Overlays'
 import { RoundBoard } from './RoundBoard'
 
-/** CPU が1手ごとに考える時間（ms）。パトカーは1台ずつこの間隔で動く */
+/** CPU が1手ごとに考える時間（ms）。ヘリコプターは1機ずつこの間隔で動く */
 const CPU_THINK_MS = 700
 
 export function GameScreen() {
@@ -83,12 +83,12 @@ export function GameScreen() {
           view={view}
           highlightedBuildings={highlightedBuildings(store)}
           highlightedIntersections={highlightedIntersections(store)}
-          selectableCars={selectableCars(store)}
-          selectedCar={store.selectedCar}
+          selectableHelicopters={selectableHelicopters(store)}
+          selectedHelicopter={store.selectedHelicopter}
           policeMode={store.mode}
           onTapBuilding={store.tapBuilding}
           onTapIntersection={store.tapIntersection}
-          onTapPoliceCar={store.tapPoliceCar}
+          onTapHelicopter={store.tapHelicopter}
         />
       </main>
 

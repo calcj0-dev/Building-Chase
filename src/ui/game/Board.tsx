@@ -1,59 +1,55 @@
-import type { ReactNode } from 'react'
 import {
   ALL_BUILDINGS,
   ALL_INTERSECTIONS,
   type BuildingId,
   type GameView,
+  type HelicopterIndex,
   type IntersectionId,
-  type PoliceCarIndex,
   type VisibleTrace,
 } from '../../core'
-import { POLICE_CAR_COLORS, RUNNER_CAR_COLOR, TRACE_COLORS } from '../theme'
+import { HELICOPTER_COLORS, TRACE_COLORS } from '../theme'
 import {
   CELL,
   FOOTPRINT,
+  HELI_LIFT,
+  HELI_SCALE,
+  SHADOW_PER_HEIGHT,
   SLAB,
-  TOKEN_LIFT,
   WORLD_SIZE,
   buildingBox,
-  depth,
   intersectionGround,
   isLargeBuilding,
   points,
-  project,
   roofCenter,
   viewBox,
-  windowLit,
-} from './iso'
+} from './geometry'
 
 interface BoardProps {
   view: GameView
   highlightedBuildings: BuildingId[]
   highlightedIntersections: IntersectionId[]
-  selectableCars: PoliceCarIndex[]
-  selectedCar: PoliceCarIndex | null
+  selectableHelicopters: HelicopterIndex[]
+  selectedHelicopter: HelicopterIndex | null
   /**
-   * 選択中の行動。パトカーのコマは浮いていて奥のビルに重なるため、
-   * 捜索するビルを選ぶ間はコマを半透明にしてタップを通す。移動先を選ぶ間は当たり判定を小さくする
+   * 選択中の行動。ヘリコプターは空中に描くため北側のビルに重なる。
+   * 捜索するビルを選ぶ間はヘリコプターを半透明にしてタップを通し、移動先を選ぶ間は当たり判定を小さくする
    */
   policeMode: 'move' | 'search' | null
   onTapBuilding(building: BuildingId): void
   onTapIntersection(intersection: IntersectionId): void
-  onTapPoliceCar(car: PoliceCarIndex): void
+  onTapHelicopter(helicopter: HelicopterIndex): void
 }
-
-const BUILDINGS_BACK_TO_FRONT = [...ALL_BUILDINGS].sort((a, b) => depth(a) - depth(b))
 
 export function Board({
   view,
   highlightedBuildings,
   highlightedIntersections,
-  selectableCars,
-  selectedCar,
+  selectableHelicopters,
+  selectedHelicopter,
   policeMode,
   onTapBuilding,
   onTapIntersection,
-  onTapPoliceCar,
+  onTapHelicopter,
 }: BoardProps) {
   const traceByBuilding = new Map(view.traces.map((t) => [t.building, t]))
   const showRoute = view.phase === 'ended'
@@ -74,48 +70,55 @@ export function Board({
           <stop offset="0" stopColor="#2a3850" />
           <stop offset="1" stopColor="#1a2438" />
         </linearGradient>
-        <radialGradient id="bc-beam" cx="0.5" cy="0.5" r="0.5">
-          <stop offset="0" stopColor="#fde68a" stopOpacity="0.9" />
-          <stop offset="1" stopColor="#fde68a" stopOpacity="0" />
-        </radialGradient>
+        <linearGradient id="bc-canopy" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#e0f2fe" />
+          <stop offset="1" stopColor="#7dd3fc" />
+        </linearGradient>
       </defs>
 
       <Ground />
 
-      {/* パトカーの影（地面に落ちる。手前のビルに隠れることがある） */}
-      {view.policeCars.map((at, i) => {
+      {/* ビルとヘリコプターの影（地面に落ちる） */}
+      {ALL_BUILDINGS.map((id) => (
+        <BuildingShadow key={`bs${id}`} id={id} />
+      ))}
+      {view.helicopters.map((at, i) => {
         if (at === null) return null
         const g = intersectionGround(at)
         return (
           <g
-            key={`shadow${i}`}
+            key={`hs${i}`}
             className="bc-move"
             style={{ transform: `translate(${g.x}px, ${g.y}px)` }}
+            pointerEvents="none"
           >
-            <ellipse rx={26} ry={15} fill="#020617" opacity={0.55} />
+            <ellipse rx={30} ry={10} fill="#020617" opacity={0.5} className="bc-shadow" />
           </g>
         )
       })}
 
-      {BUILDINGS_BACK_TO_FRONT.map((id) => (
+      {ALL_BUILDINGS.map((id) => (
         <Building
           key={`b${id}`}
           id={id}
           highlighted={highlightedBuildings.includes(id)}
           onTap={onTapBuilding}
-        >
-          <RoofItems
-            id={id}
-            trace={traceByBuilding.get(id)}
-            hasRunner={view.runnerPosition === id}
-            showRoute={showRoute}
-          />
-        </Building>
+        />
+      ))}
+
+      {ALL_BUILDINGS.map((id) => (
+        <RoofItems
+          key={`r${id}`}
+          id={id}
+          trace={traceByBuilding.get(id)}
+          hasRunner={view.runnerPosition === id}
+          showRoute={showRoute}
+        />
       ))}
 
       {showRoute && route.length > 1 && (
         <polyline
-          points={points(route.map((b) => roofCenter(b)).map((p) => ({ x: p.x, y: p.y - 4 })))}
+          points={points(route.map((b) => roofCenter(b)))}
           fill="none"
           stroke="#f8fafc"
           strokeWidth={4}
@@ -128,24 +131,24 @@ export function Board({
       )}
       {showRoute && <RouteNumbers traces={view.traces} />}
 
-      {view.policeCars.map((at, i) => {
+      {view.helicopters.map((at, i) => {
         if (at === null) return null
-        const car = i as PoliceCarIndex
+        const helicopter = i as HelicopterIndex
         return (
-          <PoliceToken
-            key={`p${car}`}
-            car={car}
+          <Helicopter
+            key={`h${helicopter}`}
+            helicopter={helicopter}
             at={at}
-            acted={view.phase === 'police' && view.actedCars[car]}
-            selected={selectedCar === car}
-            selectable={selectableCars.includes(car)}
+            acted={view.phase === 'police' && view.actedHelicopters[helicopter]}
+            selected={selectedHelicopter === helicopter}
+            selectable={selectableHelicopters.includes(helicopter)}
             hitArea={policeMode === 'search' ? 'none' : policeMode === 'move' ? 'compact' : 'wide'}
-            onTap={onTapPoliceCar}
+            onTap={onTapHelicopter}
           />
         )
       })}
 
-      {/* 選べる交差点は最前面に表示し、ビルの奥でもタップできるようにする */}
+      {/* 選べる交差点は最前面に表示し、ヘリコプターの下でもタップできるようにする */}
       {ALL_INTERSECTIONS.filter((id) => highlightedIntersections.includes(id)).map((id) => {
         const g = intersectionGround(id)
         return (
@@ -157,25 +160,19 @@ export function Board({
             className="cursor-pointer"
           >
             <g className="bc-glow">
-              <ellipse
+              <circle
                 cx={g.x}
                 cy={g.y}
-                rx={34}
-                ry={20}
+                r={17}
                 fill="#fde68a"
                 fillOpacity={0.4}
                 stroke="#fde68a"
                 strokeWidth={4}
               />
-              <path
-                d={`M ${g.x} ${g.y - 20} l -12 -20 h 24 z`}
-                fill="#fde68a"
-                stroke="#0f172a"
-                strokeWidth={1.5}
-              />
+              <circle cx={g.x} cy={g.y} r={5} fill="#fde68a" />
             </g>
             {/* タップしやすいよう当たり判定を広げる */}
-            <ellipse cx={g.x} cy={g.y - 12} rx={46} ry={34} fill="transparent" />
+            <circle cx={g.x} cy={g.y} r={30} fill="transparent" />
           </g>
         )
       })}
@@ -183,77 +180,73 @@ export function Board({
   )
 }
 
-/** 地面: 土台、道路の中央線、交差点 */
+/** 地面: 土台、道路の中央線、横断歩道、交差点 */
 function Ground() {
-  const c = [
-    project(0, 0),
-    project(WORLD_SIZE, 0),
-    project(WORLD_SIZE, WORLD_SIZE),
-    project(0, WORLD_SIZE),
-  ]
-  const down = (p: { x: number; y: number }) => ({ x: p.x, y: p.y + SLAB })
-  const lanes = [1, 2, 3, 4].flatMap((k) => [
-    [project(k * CELL, 0), project(k * CELL, WORLD_SIZE)],
-    [project(0, k * CELL), project(WORLD_SIZE, k * CELL)],
-  ])
+  const lanes = [1, 2, 3, 4]
   return (
     <g pointerEvents="none">
-      {/* 土台の側面 */}
-      <polygon points={points([c[3], c[2], down(c[2]), down(c[3])])} fill="#0b1220" />
-      <polygon points={points([c[2], c[1], down(c[1]), down(c[2])])} fill="#070d18" />
+      {/* 土台の厚み（手前側） */}
+      <rect x={0} y={WORLD_SIZE - 8} width={WORLD_SIZE} height={SLAB + 8} rx={10} fill="#0b1220" />
       {/* 道路（アスファルト） */}
-      <polygon points={points(c)} fill="url(#bc-plate)" stroke="#334155" strokeWidth={2} />
-      {lanes.map(([a, b], i) => (
-        <line
-          key={i}
-          x1={a.x}
-          y1={a.y}
-          x2={b.x}
-          y2={b.y}
-          stroke="#cbd5e1"
-          strokeWidth={2.5}
-          strokeDasharray="10 12"
-          opacity={0.45}
-        />
+      <rect
+        width={WORLD_SIZE}
+        height={WORLD_SIZE}
+        rx={10}
+        fill="url(#bc-plate)"
+        stroke="#334155"
+        strokeWidth={2}
+      />
+      {lanes.map((k) => (
+        <g key={k} stroke="#cbd5e1" strokeWidth={2.5} strokeDasharray="10 12" opacity={0.4}>
+          <line x1={k * CELL} y1={0} x2={k * CELL} y2={WORLD_SIZE} />
+          <line x1={0} y1={k * CELL} x2={WORLD_SIZE} y2={k * CELL} />
+        </g>
       ))}
       {ALL_INTERSECTIONS.map((id) => {
         const g = intersectionGround(id)
-        return <ellipse key={id} cx={g.x} cy={g.y} rx={9} ry={5.5} fill="#94a3b8" opacity={0.8} />
+        return <circle key={id} cx={g.x} cy={g.y} r={7} fill="#94a3b8" opacity={0.8} />
       })}
     </g>
   )
 }
 
 const BUILDING_COLORS = {
-  large: { roof: '#475a7a', left: '#2b3a55', right: '#1c2840', rim: '#7b93bd' },
-  small: { roof: '#526283', left: '#334363', right: '#222f4a', rim: '#8aa0c8' },
+  large: { roof: '#4b5f82', parapet: '#7b93bd', inner: '#3c4d6c', fixture: '#2a3852' },
+  small: { roof: '#56688b', parapet: '#8aa0c8', inner: '#4a5b7c', fixture: '#33415e' },
 }
 
+/** 高いビルほど長い影を右下に落とす */
+function BuildingShadow({ id }: { id: BuildingId }) {
+  const { x0, y0, h } = buildingBox(id)
+  const d = h * SHADOW_PER_HEIGHT
+  return (
+    <rect
+      x={x0 + d * 0.4}
+      y={y0 + d * 0.4}
+      width={FOOTPRINT + d * 0.6}
+      height={FOOTPRINT + d * 0.6}
+      rx={6}
+      fill="#020617"
+      opacity={0.5}
+      pointerEvents="none"
+    />
+  )
+}
+
+/** ビル（真上から見た屋上） */
 function Building({
   id,
   highlighted,
   onTap,
-  children,
 }: {
   id: BuildingId
   highlighted: boolean
   onTap(id: BuildingId): void
-  children: ReactNode
 }) {
-  const { x0, y0, x1, y1, h } = buildingBox(id)
-  const colors = isLargeBuilding(id) ? BUILDING_COLORS.large : BUILDING_COLORS.small
-  const roof = [project(x0, y0, h), project(x1, y0, h), project(x1, y1, h), project(x0, y1, h)]
-  const left = [project(x0, y1), project(x1, y1), project(x1, y1, h), project(x0, y1, h)]
-  const right = [project(x1, y0), project(x1, y1), project(x1, y1, h), project(x1, y0, h)]
-  // 歩道（ビルの足元を少し広げた面）
-  const pad = 5
-  const sidewalk = [
-    project(x0 - pad, y0 - pad),
-    project(x1 + pad, y0 - pad),
-    project(x1 + pad, y1 + pad),
-    project(x0 - pad, y1 + pad),
-  ]
-
+  const { x0, y0 } = buildingBox(id)
+  const large = isLargeBuilding(id)
+  const colors = large ? BUILDING_COLORS.large : BUILDING_COLORS.small
+  const inset = 6
   return (
     <g
       data-building={id}
@@ -261,92 +254,71 @@ function Building({
       onClick={highlighted ? () => onTap(id) : undefined}
       className={highlighted ? 'cursor-pointer' : undefined}
     >
-      <polygon points={points(sidewalk)} fill="#273449" pointerEvents="none" />
-      <polygon points={points(left)} fill={colors.left} />
-      <polygon points={points(right)} fill={colors.right} />
-      <Windows id={id} h={h} x0={x0} y0={y0} x1={x1} y1={y1} />
-      <polygon points={points(roof)} fill={colors.roof} stroke={colors.rim} strokeWidth={1.5} />
-      {highlighted && (
-        <g className="bc-glow" pointerEvents="none">
-          <polygon
-            points={points(roof)}
-            fill="#fde68a"
-            fillOpacity={0.45}
-            stroke="#fde68a"
-            strokeWidth={4}
+      {/* 屋上の外周（パラペット）と内側の床 */}
+      <rect
+        x={x0}
+        y={y0}
+        width={FOOTPRINT}
+        height={FOOTPRINT}
+        rx={6}
+        fill={colors.roof}
+        stroke={colors.parapet}
+        strokeWidth={2}
+      />
+      <rect
+        x={x0 + inset}
+        y={y0 + inset}
+        width={FOOTPRINT - inset * 2}
+        height={FOOTPRINT - inset * 2}
+        rx={3}
+        fill={colors.inner}
+        pointerEvents="none"
+      />
+      {/* 屋上の設備（見た目だけ） */}
+      {large ? (
+        <g pointerEvents="none">
+          <rect x={x0 + 10} y={y0 + 10} width={20} height={15} rx={2} fill={colors.fixture} />
+          <circle cx={x0 + FOOTPRINT - 15} cy={y0 + FOOTPRINT - 15} r={6} fill={colors.fixture} />
+          <circle
+            cx={x0 + FOOTPRINT - 15}
+            cy={y0 + FOOTPRINT - 15}
+            r={2.5}
+            fill={colors.parapet}
+            opacity={0.6}
           />
-          <polyline
-            points={points([left[0], left[1], right[0]])}
-            fill="none"
-            stroke="#fde68a"
-            strokeWidth={3}
+        </g>
+      ) : (
+        <g pointerEvents="none">
+          <rect
+            x={x0 + FOOTPRINT - 22}
+            y={y0 + 10}
+            width={11}
+            height={9}
+            rx={2}
+            fill={colors.fixture}
           />
         </g>
       )}
-      {children}
+      {highlighted && (
+        <rect
+          className="bc-glow"
+          pointerEvents="none"
+          x={x0 - 2}
+          y={y0 - 2}
+          width={FOOTPRINT + 4}
+          height={FOOTPRINT + 4}
+          rx={8}
+          fill="#fde68a"
+          fillOpacity={0.45}
+          stroke="#fde68a"
+          strokeWidth={4}
+        />
+      )}
     </g>
   )
 }
 
-/** 窓（夜の街らしく、ところどころ明かりが点いている） */
-function Windows({
-  id,
-  h,
-  x0,
-  y0,
-  x1,
-  y1,
-}: {
-  id: BuildingId
-  h: number
-  x0: number
-  y0: number
-  x1: number
-  y1: number
-}) {
-  const floors = Math.floor((h - 10) / 14)
-  const cols = [10, 30, 50]
-  const out: ReactNode[] = []
-  for (let f = 0; f < floors; f++) {
-    const z0 = 8 + f * 14
-    const z1 = z0 + 7
-    for (const [k, u] of cols.entries()) {
-      // 左面（y = y1）
-      const litL = windowLit(id, 0, f, k)
-      out.push(
-        <polygon
-          key={`l${f}-${k}`}
-          points={points([
-            project(x0 + u, y1, z0),
-            project(x0 + u + 10, y1, z0),
-            project(x0 + u + 10, y1, z1),
-            project(x0 + u, y1, z1),
-          ])}
-          fill={litL ? '#fcd34d' : '#16203a'}
-          opacity={litL ? 0.85 : 1}
-        />,
-      )
-      // 右面（x = x1）
-      const litR = windowLit(id, 1, f, k)
-      out.push(
-        <polygon
-          key={`r${f}-${k}`}
-          points={points([
-            project(x1, y0 + u, z0),
-            project(x1, y0 + u + 10, z0),
-            project(x1, y0 + u + 10, z1),
-            project(x1, y0 + u, z1),
-          ])}
-          fill={litR ? '#fbbf24' : '#111a30'}
-          opacity={litR ? 0.6 : 1}
-        />,
-      )
-    }
-  }
-  return <g pointerEvents="none">{out}</g>
-}
-
-/** 屋上に置くもの: 痕跡コマと逃亡者の車 */
+/** 屋上に置くもの: 痕跡コマと逃亡者 */
 function RoofItems({
   id,
   trace,
@@ -359,13 +331,13 @@ function RoofItems({
   showRoute: boolean
 }) {
   const q = FOOTPRINT / 4
-  // 車と痕跡が同じビルにあるときは重ならないようにずらす
+  // 逃亡者と痕跡が同じビルにあるときは重ならないようにずらす
   const tracePos = hasRunner && !showRoute ? roofCenter(id, -q, -q) : roofCenter(id)
-  const carPos = showRoute ? roofCenter(id, q, q) : roofCenter(id, q / 2, q / 2)
+  const runnerPos = showRoute ? roofCenter(id, q, q * 1.4) : roofCenter(id, q / 2, q * 1.2)
   return (
     <g pointerEvents="none">
       {trace && !showRoute && <TraceToken trace={trace} x={tracePos.x} y={tracePos.y} />}
-      {hasRunner && <RunnerCar x={carPos.x} y={carPos.y} />}
+      {hasRunner && <Villain x={runnerPos.x} y={runnerPos.y} />}
     </g>
   )
 }
@@ -373,17 +345,16 @@ function RoofItems({
 function TraceToken({ trace, x, y }: { trace: VisibleTrace; x: number; y: number }) {
   return (
     <g>
-      <ellipse cx={x} cy={y + 4} rx={24} ry={14} fill="#020617" opacity={0.5} />
-      <ellipse
+      <circle cx={x + 2} cy={y + 3} r={17} fill="#020617" opacity={0.5} />
+      <circle
         cx={x}
         cy={y}
-        rx={24}
-        ry={14}
+        r={17}
         fill={TRACE_COLORS[trace.color]}
         stroke={trace.found ? '#f8fafc' : '#0f172a'}
         strokeWidth={trace.found ? 3 : 1.5}
       />
-      <text x={x} y={y + 7} textAnchor="middle" fontSize={19} fontWeight="bold" fill="#0f172a">
+      <text x={x} y={y + 6} textAnchor="middle" fontSize={17} fontWeight="bold" fill="#0f172a">
         {trace.round ?? '!'}
       </text>
     </g>
@@ -396,45 +367,58 @@ function RouteNumbers({ traces }: { traces: VisibleTrace[] }) {
     <g pointerEvents="none">
       {traces.map((t) => {
         const p = roofCenter(t.building)
-        return <TraceToken key={t.building} trace={t} x={p.x} y={p.y - 4} />
+        return <TraceToken key={t.building} trace={t} x={p.x} y={p.y} />
       })}
     </g>
   )
 }
 
-/** 逃亡者の車（屋上に小さな箱型で表示） */
-function RunnerCar({ x, y }: { x: number; y: number }) {
-  // 車体を盤面と同じ向きの小さな直方体として描く
-  const L = 42
-  const W = 22
-  const H = 12
-  const p = (wx: number, wy: number, wz: number) => {
-    const s = project(wx, wy, wz)
-    return { x: s.x, y: s.y }
-  }
-  const top = [p(-L / 2, -W / 2, H), p(L / 2, -W / 2, H), p(L / 2, W / 2, H), p(-L / 2, W / 2, H)]
-  const side = [p(-L / 2, W / 2, 0), p(L / 2, W / 2, 0), p(L / 2, W / 2, H), p(-L / 2, W / 2, H)]
-  const front = [p(L / 2, -W / 2, 0), p(L / 2, W / 2, 0), p(L / 2, W / 2, H), p(L / 2, -W / 2, H)]
-  const glass = [
-    p(-2, -W / 2 + 3, H),
-    p(11, -W / 2 + 3, H),
-    p(11, W / 2 - 3, H),
-    p(-2, W / 2 - 3, H),
-  ]
+/** 逃亡者: 目出し帽とボーダーシャツ、お金の袋を抱えた泥棒 */
+function Villain({ x, y }: { x: number; y: number }) {
   return (
-    <g className="bc-move" style={{ transform: `translate(${x}px, ${y}px)` }}>
-      <ellipse rx={32} ry={18} cy={2} fill="#ef4444" opacity={0.4} className="bc-glow" />
-      <polygon points={points(side)} fill="#991b1b" />
-      <polygon points={points(front)} fill="#7f1d1d" />
-      <polygon points={points(top)} fill={RUNNER_CAR_COLOR} stroke="#450a0a" strokeWidth={1.5} />
-      <polygon points={points(glass)} fill="#fecaca" />
+    <g className="bc-move" style={{ transform: `translate(${x}px, ${y}px) scale(1.3)` }}>
+      <ellipse rx={16} ry={6} fill="#ef4444" opacity={0.45} className="bc-glow" />
+      <ellipse rx={11} ry={4} fill="#020617" opacity={0.6} />
+      {/* 脚 */}
+      <rect x={-7} y={-15} width={5} height={15} rx={2} fill="#111827" />
+      <rect x={2} y={-15} width={5} height={15} rx={2} fill="#111827" />
+      {/* 胴体（ボーダーシャツ） */}
+      <rect
+        x={-10}
+        y={-33}
+        width={20}
+        height={20}
+        rx={5}
+        fill="#f1f5f9"
+        stroke="#0f172a"
+        strokeWidth={1.5}
+      />
+      <rect x={-10} y={-29} width={20} height={3.5} fill="#0f172a" />
+      <rect x={-10} y={-22} width={20} height={3.5} fill="#0f172a" />
+      {/* 腕 */}
+      <path d="M -10 -29 L -15 -18" stroke="#0f172a" strokeWidth={4} strokeLinecap="round" />
+      <path d="M 10 -29 L 14 -22" stroke="#0f172a" strokeWidth={4} strokeLinecap="round" />
+      {/* お金の袋 */}
+      <path d="M 12 -27 q -2 -4 2 -5 h 5 q 4 1 2 5 z" fill="#854d0e" />
+      <ellipse cx={17} cy={-20} rx={8} ry={8} fill="#a16207" stroke="#422006" strokeWidth={1.5} />
+      <text x={17} y={-16.5} textAnchor="middle" fontSize={10} fontWeight="bold" fill="#fef3c7">
+        $
+      </text>
+      {/* 頭（目出し帽） */}
+      <circle cy={-42} r={10} fill="#1f2937" stroke="#0f172a" strokeWidth={1.5} />
+      <rect x={-8} y={-46} width={16} height={6} rx={3} fill="#f2c9a0" />
+      <circle cx={-3.5} cy={-43} r={1.7} fill="#0f172a" />
+      <circle cx={3.5} cy={-43} r={1.7} fill="#0f172a" />
+      <path d="M -6 -47.5 L -1 -46" stroke="#0f172a" strokeWidth={1.4} strokeLinecap="round" />
+      <path d="M 6 -47.5 L 1 -46" stroke="#0f172a" strokeWidth={1.4} strokeLinecap="round" />
+      <circle cy={-52} r={3} fill="#dc2626" />
     </g>
   )
 }
 
-/** パトカーのコマ（交差点の上に浮かせて表示） */
-function PoliceToken({
-  car,
+/** 警察のヘリコプター（横から見たイラスト。交差点の上空を飛んでいる） */
+function Helicopter({
+  helicopter,
   at,
   acted,
   selected,
@@ -442,58 +426,134 @@ function PoliceToken({
   hitArea,
   onTap,
 }: {
-  car: PoliceCarIndex
+  helicopter: HelicopterIndex
   at: IntersectionId
   acted: boolean
   selected: boolean
   selectable: boolean
   hitArea: 'wide' | 'compact' | 'none'
-  onTap(car: PoliceCarIndex): void
+  onTap(helicopter: HelicopterIndex): void
 }) {
   const g = intersectionGround(at)
-  const color = acted ? '#475569' : POLICE_CAR_COLORS[car]
+  const body = acted ? '#64748b' : HELICOPTER_COLORS[helicopter]
+  const outline = '#0f172a'
+  const tappable = selectable && hitArea !== 'none'
   return (
     <g
-      data-car={car}
-      onClick={selectable && hitArea !== 'none' ? () => onTap(car) : undefined}
-      className={`bc-move ${selectable && hitArea !== 'none' ? 'cursor-pointer' : ''}`}
-      pointerEvents={!selectable || hitArea === 'none' ? 'none' : undefined}
+      data-helicopter={helicopter}
+      onClick={tappable ? () => onTap(helicopter) : undefined}
+      className={`bc-move ${tappable ? 'cursor-pointer' : ''}`}
+      pointerEvents={tappable ? undefined : 'none'}
       opacity={hitArea === 'none' ? 0.45 : 1}
       style={{ transform: `translate(${g.x}px, ${g.y}px)` }}
     >
-      {/* 台座の柱 */}
-      <line
-        x1={0}
-        y1={0}
-        x2={0}
-        y2={-TOKEN_LIFT + 26}
-        stroke={acted ? '#64748b' : '#e2e8f0'}
-        strokeWidth={3}
-        opacity={0.8}
-      />
-      <g transform={`translate(0, ${-TOKEN_LIFT})`}>
-        {selected && <circle r={38} fill="none" stroke="#f8fafc" strokeWidth={5} />}
-        <circle r={29} fill={color} stroke={acted ? '#94a3b8' : '#0f172a'} strokeWidth={4} />
-        {/* 屋根の回転灯 */}
-        {!acted && (
-          <g className="bc-siren">
-            <rect x={-14} y={-38} width={13} height={9} rx={3} fill="#ef4444" />
-            <rect x={1} y={-38} width={13} height={9} rx={3} fill="#3b82f6" />
+      <g transform={`translate(0, ${-HELI_LIFT}) scale(${HELI_SCALE})`}>
+        {/* 行動済みのヘリコプターはホバリングとローターを止める */}
+        <g className={acted ? undefined : 'bc-hover'}>
+          {selected && (
+            <ellipse cx={6} cy={-6} rx={52} ry={36} fill="none" stroke="#f8fafc" strokeWidth={4} />
+          )}
+
+          {/* テールブーム・尾翼・テールローター */}
+          <path
+            d="M 14 -10 L 50 -14 L 50 -7 L 14 2 Z"
+            fill={body}
+            stroke={outline}
+            strokeWidth={2}
+            strokeLinejoin="round"
+          />
+          <path
+            d="M 44 -14 L 52 -30 L 58 -30 L 54 -9 Z"
+            fill={body}
+            stroke={outline}
+            strokeWidth={2}
+            strokeLinejoin="round"
+          />
+          <g transform="translate(51, -12)">
+            <circle r={8} fill="#e2e8f0" opacity={acted ? 0 : 0.25} />
+            <g className={acted ? undefined : 'bc-tail-rotor'}>
+              <path
+                d="M -8 0 H 8 M 0 -8 V 8"
+                stroke={outline}
+                strokeWidth={2.5}
+                strokeLinecap="round"
+              />
+            </g>
+            <circle r={2} fill={outline} />
           </g>
-        )}
-        <text
-          y={9}
-          textAnchor="middle"
-          fontSize={25}
-          fontWeight="bold"
-          fill={acted ? '#cbd5e1' : '#0f172a'}
-          pointerEvents="none"
-        >
-          {car + 1}
-        </text>
-        {selectable && hitArea !== 'none' && (
-          <circle r={hitArea === 'wide' ? 44 : 32} fill="transparent" />
-        )}
+
+          {/* スキッド（着陸用のそり） */}
+          <path
+            d="M -10 8 L -14 18 M 6 8 L 8 18"
+            stroke={outline}
+            strokeWidth={3}
+            strokeLinecap="round"
+          />
+          <path
+            d="M -26 15 Q -26 19 -21 19 H 18"
+            fill="none"
+            stroke={outline}
+            strokeWidth={3.5}
+            strokeLinecap="round"
+          />
+
+          {/* 胴体 */}
+          <path
+            d="M -26 -2 C -26 -16 -14 -22 0 -22 C 12 -22 20 -16 20 -6 C 20 4 12 10 0 10 L -16 10 C -22 10 -26 6 -26 -2 Z"
+            fill={body}
+            stroke={outline}
+            strokeWidth={2.5}
+            strokeLinejoin="round"
+          />
+          {/* 警察の白いライン */}
+          <path d="M -24 3 H 19" stroke="#f8fafc" strokeWidth={3} opacity={acted ? 0.5 : 0.9} />
+          {/* キャノピー（大きな窓） */}
+          <path
+            d="M -25 -3 C -24 -13 -15 -19 -4 -19 L -4 -3 Z"
+            fill="url(#bc-canopy)"
+            stroke={outline}
+            strokeWidth={2}
+            strokeLinejoin="round"
+          />
+          <path
+            d="M -19 -8 C -17 -13 -13 -15 -9 -16"
+            fill="none"
+            stroke="#f8fafc"
+            strokeWidth={2}
+            strokeLinecap="round"
+            opacity={0.8}
+          />
+          {/* 番号 */}
+          <circle cx={8} cy={-9} r={8} fill="#f8fafc" stroke={outline} strokeWidth={1.5} />
+          <text x={8} y={-4.5} textAnchor="middle" fontSize={12} fontWeight="bold" fill={outline}>
+            {helicopter + 1}
+          </text>
+          {/* 回転灯 */}
+          {!acted && (
+            <g className="bc-siren">
+              <rect x={-6} y={-27} width={6} height={5} rx={1.5} fill="#ef4444" />
+              <rect x={1} y={-27} width={6} height={5} rx={1.5} fill="#3b82f6" />
+            </g>
+          )}
+
+          {/* メインローター（横から見ると羽根が伸び縮みして見える） */}
+          <rect x={-2} y={-30} width={4} height={8} fill={outline} />
+          <g className={acted ? undefined : 'bc-main-rotor'}>
+            <rect x={-44} y={-34} width={88} height={4} rx={2} fill={outline} />
+          </g>
+          {!acted && <ellipse cy={-32} rx={44} ry={3} fill="#e2e8f0" opacity={0.15} />}
+          <circle cy={-32} r={3.5} fill={outline} />
+
+          {tappable && (
+            <ellipse
+              cx={6}
+              cy={-6}
+              rx={hitArea === 'wide' ? 44 : 32}
+              ry={hitArea === 'wide' ? 32 : 24}
+              fill="transparent"
+            />
+          )}
+        </g>
       </g>
     </g>
   )

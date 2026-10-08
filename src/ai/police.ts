@@ -1,12 +1,12 @@
 import {
   BUILDINGS_AROUND_INTERSECTION,
   INTERSECTION_NEIGHBORS,
-  POLICE_CARS,
+  HELICOPTERS,
   type Action,
   type BuildingId,
   type GameView,
   type IntersectionId,
-  type PoliceCarIndex,
+  type HelicopterIndex,
 } from '../core'
 import { inferRunner, type RunnerBelief } from './inference'
 import { pickBest, type Rng } from './random'
@@ -27,7 +27,7 @@ export interface PoliceWeights {
 export const DEFAULT_POLICE_WEIGHTS: PoliceWeights = { future: 1.5, info: 0.3, futureMode: 'sum' }
 
 /**
- * CPU警察の行動を1つ選ぶ（パトカー1台分）。
+ * CPU警察の行動を1つ選ぶ（ヘリコプター1機分）。
  * 引数は警察視点の GameView のみ。逃亡者の位置は参照できない。
  */
 export function choosePoliceAction(
@@ -40,8 +40,8 @@ export function choosePoliceAction(
   if (view.phase !== 'police') throw new Error(`Police cannot act in phase ${view.phase}`)
 
   const belief = inferRunner(view)
-  const options = POLICE_CARS.filter((car) => !view.actedCars[car]).flatMap((car) =>
-    carOptions(view, car, belief, weights),
+  const options = HELICOPTERS.filter((helicopter) => !view.actedHelicopters[helicopter]).flatMap(
+    (helicopter) => helicopterOptions(view, helicopter, belief, weights),
   )
   return pickBest(options, (o) => o.score, rng).action
 }
@@ -57,19 +57,19 @@ interface ScoredAction {
   score: number
 }
 
-function carOptions(
+function helicopterOptions(
   view: GameView,
-  car: PoliceCarIndex,
+  helicopter: HelicopterIndex,
   belief: RunnerBelief,
   weights: PoliceWeights,
 ): ScoredAction[] {
-  const at = view.policeCars[car]
+  const at = view.helicopters[helicopter]
   if (at === null) return []
 
-  // 他のパトカーが次ラウンドに捜索できる範囲は、このパトカーが重ねて守る必要がない
+  // 他のヘリコプターが次ラウンドに捜索できる範囲は、このヘリコプターが重ねて守る必要がない
   const coveredByOthers = new Set<BuildingId>(
-    view.policeCars.flatMap((p, i) =>
-      i === car || p === null ? [] : BUILDINGS_AROUND_INTERSECTION[p],
+    view.helicopters.flatMap((p, i) =>
+      i === helicopter || p === null ? [] : BUILDINGS_AROUND_INTERSECTION[p],
     ),
   )
   const future = (i: IntersectionId) => {
@@ -80,18 +80,18 @@ function carOptions(
   }
 
   const searches = BUILDINGS_AROUND_INTERSECTION[at].map((building) => ({
-    action: { type: 'policeSearch', car, building } as Action,
+    action: { type: 'policeSearch', helicopter, building } as Action,
     score:
       belief.here[building] +
       weights.info * outcomeEntropy(belief.here[building], belief.visited[building]) +
       weights.future * future(at),
   }))
 
-  const occupied = new Set(view.policeCars)
+  const occupied = new Set(view.helicopters)
   const moves = INTERSECTION_NEIGHBORS[at]
     .filter((i) => !occupied.has(i))
     .map((intersection) => ({
-      action: { type: 'policeMove', car, intersection } as Action,
+      action: { type: 'policeMove', helicopter, intersection } as Action,
       score: weights.future * future(intersection),
     }))
 
@@ -99,9 +99,9 @@ function carOptions(
 }
 
 function choosePlacement(view: GameView, rng: Rng): Action {
-  const car = POLICE_CARS.find((c) => view.policeCars[c] === null)
-  if (car === undefined) throw new Error('All police cars are already placed')
-  const free = CENTRAL_INTERSECTIONS.filter((i) => !view.policeCars.includes(i))
+  const helicopter = HELICOPTERS.find((c) => view.helicopters[c] === null)
+  if (helicopter === undefined) throw new Error('All police cars are already placed')
+  const free = CENTRAL_INTERSECTIONS.filter((i) => !view.helicopters.includes(i))
   const intersection = free[Math.floor(rng() * free.length)]
-  return { type: 'placePolice', car, intersection }
+  return { type: 'placePolice', helicopter, intersection }
 }

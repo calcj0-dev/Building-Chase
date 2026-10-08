@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { chooseCpuAction, type Rng } from '../ai'
 import {
-  POLICE_CARS,
+  HELICOPTERS,
   applyAction,
   createGame,
   currentRole,
@@ -13,7 +13,7 @@ import {
   type BuildingId,
   type GameState,
   type IntersectionId,
-  type PoliceCarIndex,
+  type HelicopterIndex,
   type Role,
   type SearchRecord,
 } from '../core'
@@ -27,9 +27,9 @@ export interface GameStoreState {
   /** 人が操作する陣営。null の間は陣営選択を表示する */
   humanSide: HumanSide | null
   game: GameState
-  /** 警察フェーズで選択中のパトカー */
-  selectedCar: PoliceCarIndex | null
-  /** 選択中のパトカーの行動（未選択は null） */
+  /** 警察フェーズで選択中のヘリコプター */
+  selectedHelicopter: HelicopterIndex | null
+  /** 選択中のヘリコプターの行動（未選択は null） */
   mode: PoliceMode | null
   /** 直前の捜索結果（次の行動まで表示する） */
   lastSearch: SearchRecord | null
@@ -44,7 +44,7 @@ export interface GameStoreActions {
   cpuStep(): void
   tapBuilding(building: BuildingId): void
   tapIntersection(intersection: IntersectionId): void
-  tapPoliceCar(car: PoliceCarIndex): void
+  tapHelicopter(helicopter: HelicopterIndex): void
   chooseMode(mode: PoliceMode): void
   cancelSelection(): void
   dismissHandoff(): void
@@ -56,7 +56,7 @@ export function initialStoreState(humanSide: HumanSide | null = 'both'): GameSto
   return {
     humanSide,
     game: createGame(),
-    selectedCar: null,
+    selectedHelicopter: null,
     mode: null,
     lastSearch: null,
     handoffTo: null,
@@ -81,18 +81,18 @@ export function viewRole(s: GameStoreState): Role {
   return currentRole(s.game) ?? 'runner'
 }
 
-/** 配置フェーズで次に置くパトカー */
-export function nextCarToPlace(game: GameState): PoliceCarIndex | null {
+/** 配置フェーズで次に置くヘリコプター */
+export function nextHelicopterToPlace(game: GameState): HelicopterIndex | null {
   if (game.phase !== 'setup') return null
-  return POLICE_CARS.find((car) => game.policeCars[car] === null) ?? null
+  return HELICOPTERS.find((helicopter) => game.helicopters[helicopter] === null) ?? null
 }
 
 /** 今光らせるビル */
 export function highlightedBuildings(s: GameStoreState): BuildingId[] {
   if (s.handoffTo !== null || !isHumanTurn(s)) return []
   if (s.game.phase === 'runner') return runnerMoveTargets(s.game)
-  if (s.game.phase === 'police' && s.selectedCar !== null && s.mode === 'search') {
-    return policeSearchTargets(s.game, s.selectedCar)
+  if (s.game.phase === 'police' && s.selectedHelicopter !== null && s.mode === 'search') {
+    return policeSearchTargets(s.game, s.selectedHelicopter)
   }
   return []
 }
@@ -100,17 +100,17 @@ export function highlightedBuildings(s: GameStoreState): BuildingId[] {
 /** 今光らせる交差点 */
 export function highlightedIntersections(s: GameStoreState): IntersectionId[] {
   if (s.handoffTo !== null || !isHumanTurn(s)) return []
-  const car = nextCarToPlace(s.game)
-  if (car !== null) return placementTargets(s.game, car)
-  if (s.game.phase === 'police' && s.selectedCar !== null && s.mode === 'move') {
-    return policeMoveTargets(s.game, s.selectedCar)
+  const helicopter = nextHelicopterToPlace(s.game)
+  if (helicopter !== null) return placementTargets(s.game, helicopter)
+  if (s.game.phase === 'police' && s.selectedHelicopter !== null && s.mode === 'move') {
+    return policeMoveTargets(s.game, s.selectedHelicopter)
   }
   return []
 }
 
-export function selectableCars(s: GameStoreState): PoliceCarIndex[] {
+export function selectableHelicopters(s: GameStoreState): HelicopterIndex[] {
   if (s.handoffTo !== null || !isHumanTurn(s) || s.game.phase !== 'police') return []
-  return POLICE_CARS.filter((car) => !s.game.actedCars[car])
+  return HELICOPTERS.filter((helicopter) => !s.game.actedHelicopters[helicopter])
 }
 
 /** ストアの遷移ロジック（React 非依存。テストからも直接使う） */
@@ -133,27 +133,28 @@ export function reduceStore(s: GameStoreState, event: StoreEvent): GameStoreStat
       return { ...s, handoffTo: null }
 
     case 'cancelSelection':
-      return s.mode !== null ? { ...s, mode: null } : { ...s, selectedCar: null }
+      return s.mode !== null ? { ...s, mode: null } : { ...s, selectedHelicopter: null }
 
-    case 'tapPoliceCar':
-      if (!selectableCars(s).includes(event.car)) return s
-      if (s.selectedCar === event.car) return { ...s, selectedCar: null, mode: null }
-      return { ...s, selectedCar: event.car, mode: null }
+    case 'tapHelicopter':
+      if (!selectableHelicopters(s).includes(event.helicopter)) return s
+      if (s.selectedHelicopter === event.helicopter)
+        return { ...s, selectedHelicopter: null, mode: null }
+      return { ...s, selectedHelicopter: event.helicopter, mode: null }
 
     case 'chooseMode':
-      if (s.selectedCar === null || s.game.phase !== 'police') return s
+      if (s.selectedHelicopter === null || s.game.phase !== 'police') return s
       return { ...s, mode: event.mode }
 
     case 'tapIntersection': {
       if (!highlightedIntersections(s).includes(event.intersection)) return s
-      const car = nextCarToPlace(s.game)
-      if (car !== null) {
-        return dispatch(s, { type: 'placePolice', car, intersection: event.intersection })
+      const helicopter = nextHelicopterToPlace(s.game)
+      if (helicopter !== null) {
+        return dispatch(s, { type: 'placePolice', helicopter, intersection: event.intersection })
       }
-      if (s.selectedCar === null) return s
+      if (s.selectedHelicopter === null) return s
       return dispatch(s, {
         type: 'policeMove',
-        car: s.selectedCar,
+        helicopter: s.selectedHelicopter,
         intersection: event.intersection,
       })
     }
@@ -163,8 +164,12 @@ export function reduceStore(s: GameStoreState, event: StoreEvent): GameStoreStat
       if (s.game.phase === 'runner') {
         return dispatch(s, { type: 'runnerMove', building: event.building })
       }
-      if (s.selectedCar === null) return s
-      return dispatch(s, { type: 'policeSearch', car: s.selectedCar, building: event.building })
+      if (s.selectedHelicopter === null) return s
+      return dispatch(s, {
+        type: 'policeSearch',
+        helicopter: s.selectedHelicopter,
+        building: event.building,
+      })
     }
   }
 }
@@ -176,7 +181,7 @@ export type StoreEvent =
   | { type: 'cpuStep'; rng?: Rng }
   | { type: 'dismissHandoff' }
   | { type: 'cancelSelection' }
-  | { type: 'tapPoliceCar'; car: PoliceCarIndex }
+  | { type: 'tapHelicopter'; helicopter: HelicopterIndex }
   | { type: 'chooseMode'; mode: PoliceMode }
   | { type: 'tapIntersection'; intersection: IntersectionId }
   | { type: 'tapBuilding'; building: BuildingId }
@@ -191,7 +196,7 @@ function dispatch(s: GameStoreState, action: Action): GameStoreState {
   return {
     humanSide: s.humanSide,
     game,
-    selectedCar: null,
+    selectedHelicopter: null,
     mode: null,
     lastSearch: action.type === 'policeSearch' ? (game.searchLog.at(-1) ?? null) : null,
     handoffTo: roleChanged ? after : null,
@@ -208,7 +213,7 @@ export const useGameStore = create<GameStore>()((set) => {
     cpuStep: () => send({ type: 'cpuStep' }),
     tapBuilding: (building) => send({ type: 'tapBuilding', building }),
     tapIntersection: (intersection) => send({ type: 'tapIntersection', intersection }),
-    tapPoliceCar: (car) => send({ type: 'tapPoliceCar', car }),
+    tapHelicopter: (helicopter) => send({ type: 'tapHelicopter', helicopter }),
     chooseMode: (mode) => send({ type: 'chooseMode', mode }),
     cancelSelection: () => send({ type: 'cancelSelection' }),
     dismissHandoff: () => send({ type: 'dismissHandoff' }),

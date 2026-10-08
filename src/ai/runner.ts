@@ -15,11 +15,11 @@ import { pickBest, type Rng } from './random'
 
 export interface RunnerWeights {
   /**
-   * パトカーが捜索できるビルの危険度の下限（0〜1）。
+   * ヘリコプターが捜索できるビルの危険度の下限（0〜1）。
    * 0 なら「警察から見ていそうなビル」だけを危険とみなし、1 なら推理に関係なく隣接するだけで危険とみなす
    */
   adjacencyFloor: number
-  /** 次ラウンドにパトカーが寄って捜索できるビルを避ける重み */
+  /** 次ラウンドにヘリコプターが寄って捜索できるビルを避ける重み */
   nextRound: number
   /** 読まれにくさのためのランダム性の強さ */
   randomness: number
@@ -33,7 +33,7 @@ export const DEFAULT_RUNNER_WEIGHTS: RunnerWeights = {
 
 /**
  * CPU逃亡者の移動先を選ぶ。逃亡者は全情報を見られるので GameState を受け取る。
- * - パトカーが今すぐ捜索できるビル（特に警察から見て「いそう」なビル）を避ける
+ * - ヘリコプターが今すぐ捜索できるビル（特に警察から見て「いそう」なビル）を避ける
  * - 最終ラウンドまで動き続けられない（包囲される）ビルを避ける
  * - 移動先の選択肢が多いビルを好む
  */
@@ -52,16 +52,16 @@ export function chooseRunnerAction(
   const visited = new Set(state.traces.map((t) => t.building))
   const movesLeftAfter = MAX_ROUNDS - state.round
 
-  // パトカーが今いる交差点と、1手で移動できる交差点（次ラウンドに捜索できる位置）
-  const carSpots = state.policeCars.filter((c): c is number => c !== null)
-  const reachableSpots = new Set(carSpots.flatMap((c) => [c, ...INTERSECTION_NEIGHBORS[c]]))
+  // ヘリコプターが今いる交差点と、1手で移動できる交差点（次ラウンドに捜索できる位置）
+  const helicopterSpots = state.helicopters.filter((c): c is number => c !== null)
+  const reachableSpots = new Set(helicopterSpots.flatMap((c) => [c, ...INTERSECTION_NEIGHBORS[c]]))
 
   const score = (b: BuildingId) => {
     let danger = 0
-    for (const car of carSpots) {
-      if (!BUILDINGS_AROUND_INTERSECTION[car].includes(b)) continue
-      // パトカーは周囲4棟のうち、いそうなビルほど調べやすい
-      const best = Math.max(...BUILDINGS_AROUND_INTERSECTION[car].map((x) => belief.here[x]))
+    for (const helicopter of helicopterSpots) {
+      if (!BUILDINGS_AROUND_INTERSECTION[helicopter].includes(b)) continue
+      // ヘリコプターは周囲4棟のうち、いそうなビルほど調べやすい
+      const best = Math.max(...BUILDINGS_AROUND_INTERSECTION[helicopter].map((x) => belief.here[x]))
       const likely = best > 0 ? (belief.here[b] / best) ** 2 : 0
       danger += weights.adjacencyFloor + (1 - weights.adjacencyFloor) * likely
     }
