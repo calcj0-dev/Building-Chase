@@ -13,3 +13,26 @@ body {
   font-family: system-ui, 'Segoe UI', 'Hiragino Sans', 'Noto Sans JP', sans-serif;
   -webkit-tap-highlight-color: transparent;
 }
+
+/* 選択できる候補の発光 */
+@keyframes bc-glow {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.bc-glow {
+  animation: bc-glow 1.2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bc-glow {
+    animation: none;
+    opacity: 0.8;
+  }
+}
