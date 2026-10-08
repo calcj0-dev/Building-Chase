@@ -19,6 +19,7 @@
 - [x] ディレクトリ構成作成（`src/core/` ロジック / `src/ui/` 画面 / `src/ai/` CPU / `src/audio/` 音 / `src/storage/` 保存 / `src/i18n/` 翻訳）
 - [x] `.gitignore` 整備、初回コミット & push
 - [x] バージョン管理の開始（v0.0.0 タグ、`CHANGELOG.md`）
+- [x] GitHub Actions による CI（lint / 整形 / 型チェック / 単体テスト / ビルド）
 - [x] Vercel に GitHub リポジトリを連携（本番: https://building-chase.vercel.app ）
 
 **完了確認**: `npm run dev` でブラウザに空ページが表示される。Vercel の URL でも同じページが表示される

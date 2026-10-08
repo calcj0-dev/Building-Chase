@@ -203,6 +203,7 @@
 - **i18n**: i18next + react-i18next（日本語 / 英語の翻訳ファイルを `src/i18n/locales/ja.json`・`en.json` で管理）
 - **Test**: Vitest（ゲームロジックの単体テスト）
 - **Lint / Format**: oxlint / Prettier
+- **CI**: GitHub Actions（`main` への push とプルリクエストで lint / 整形チェック / 型チェック / 単体テスト / ビルドを実行。`.github/workflows/ci.yml`）
 - **Hosting（ブラウザ版）**: Vercel（GitHub 連携。`main` への push で本番デプロイ、ブランチ / PR ごとにプレビューデプロイ）
 
 ### 5.1.1. バージョン管理

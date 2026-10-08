@@ -2,6 +2,11 @@
 
 バージョン規則は [document.md](document.md) 5.1.1 を参照（push ごとに PATCH +1 / フェーズ完了で MINOR +1 / 一般公開で v1.0.0）。
 
+## [0.4.1] - 2026-10-08
+### Added
+- GitHub Actions による CI（`.github/workflows/ci.yml`）: `main` への push とプルリクエストで lint / 整形チェック / 型チェック / 単体テスト / ビルドを実行
+- `npm run typecheck`、Node.js のバージョン指定（`.nvmrc`: 24）
+
 ## [0.4.0] - 2026-10-08
 Phase 3（CPU）完了。逃亡者・警察のどちらでも CPU と対戦できる。
 
