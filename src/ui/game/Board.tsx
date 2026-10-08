@@ -206,22 +206,18 @@ export function Board({
             key={`p${car}`}
             data-car={car}
             onClick={selectable ? () => onTapPoliceCar(car) : undefined}
-            className={selectable ? 'cursor-pointer' : undefined}
+            className={`bc-move ${selectable ? 'cursor-pointer' : ''}`}
+            style={{ transform: `translate(${x}px, ${y}px)` }}
           >
-            {selected && (
-              <circle cx={x} cy={y} r={27} fill="none" stroke="#f8fafc" strokeWidth={4} />
-            )}
+            {selected && <circle r={27} fill="none" stroke="#f8fafc" strokeWidth={4} />}
             <circle
-              cx={x}
-              cy={y}
               r={20}
               fill={acted ? '#475569' : POLICE_CAR_COLORS[car]}
               stroke={acted ? '#94a3b8' : '#0f172a'}
               strokeWidth={3}
             />
             <text
-              x={x}
-              y={y + 6}
+              y={6}
               textAnchor="middle"
               fontSize={17}
               fontWeight="bold"
@@ -230,7 +226,7 @@ export function Board({
             >
               {car + 1}
             </text>
-            {selectable && !compactCarHitArea && <circle cx={x} cy={y} r={32} fill="transparent" />}
+            {selectable && !compactCarHitArea && <circle r={32} fill="transparent" />}
           </g>
         )
       })}
@@ -252,10 +248,14 @@ function RunnerCar({
   const cx = corner ? x + size - 22 : x + size / 2
   const cy = corner ? y + size - 13 : y + size / 2
   return (
-    <g pointerEvents="none">
+    <g
+      pointerEvents="none"
+      className="bc-move"
+      style={{ transform: `translate(${cx}px, ${cy}px)` }}
+    >
       <rect
-        x={cx - 20}
-        y={cy - 11}
+        x={-20}
+        y={-11}
         width={40}
         height={22}
         rx={8}
@@ -263,7 +263,7 @@ function RunnerCar({
         stroke="#0f172a"
         strokeWidth={3}
       />
-      <rect x={cx - 9} y={cy - 7} width={18} height={14} rx={3} fill="#fecaca" />
+      <rect x={-9} y={-7} width={18} height={14} rx={3} fill="#fecaca" />
     </g>
   )
 }

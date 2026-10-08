@@ -1,11 +1,16 @@
 import { describe, expect, it } from 'vitest'
+import { seededRng } from '../ai'
+import { getView } from '../core'
 import {
   highlightedBuildings,
   highlightedIntersections,
   initialStoreState,
+  isCpuTurn,
+  isHumanTurn,
   nextCarToPlace,
   reduceStore,
   selectableCars,
+  viewRole,
   type GameStoreState,
   type StoreEvent,
 } from './gameStore'
@@ -180,5 +185,59 @@ describe('police turn', () => {
     expect(s.handoffTo).toBeNull()
     s = run([{ type: 'newGame' }], s)
     expect(s.game.phase).toBe('setup')
+  })
+})
+
+describe('VS CPU', () => {
+  const cpu = (rngSeed: number): StoreEvent => ({ type: 'cpuStep', rng: seededRng(rngSeed) })
+
+  it('lets the CPU police place cars, then waits for the human runner', () => {
+    let s = run([{ type: 'startGame', side: 'runner' }])
+    expect(isCpuTurn(s)).toBe(true)
+    expect(highlightedIntersections(s)).toEqual([]) // 人は警察を操作できない
+    s = run([cpu(1), cpu(2), cpu(3)], s)
+    expect(s.game.phase).toBe('runner')
+    expect(isHumanTurn(s)).toBe(true)
+    expect(s.handoffTo).toBeNull() // CPU 戦では端末の受け渡しなし
+    expect(highlightedBuildings(s)).toHaveLength(25)
+  })
+
+  it('ignores CPU steps during the human turn', () => {
+    const s = run([{ type: 'startGame', side: 'police' }])
+    expect(isHumanTurn(s)).toBe(true)
+    expect(run([cpu(1)], s)).toBe(s)
+  })
+
+  it('shows the human side view and hides the CPU runner', () => {
+    let s = run([{ type: 'startGame', side: 'police' }, ...PLACE_ALL])
+    expect(viewRole(s)).toBe('police')
+    s = run([cpu(1)], s) // CPU 逃亡者が移動
+    expect(s.game.phase).toBe('police')
+    expect(getView(s.game, viewRole(s)).runnerPosition).toBeNull()
+  })
+
+  it('plays a whole game against the CPU', () => {
+    let s = run([{ type: 'startGame', side: 'police' }, ...PLACE_ALL])
+    const rng = seededRng(42)
+    for (let guard = 0; s.game.phase !== 'ended' && guard < 100; guard++) {
+      if (isCpuTurn(s)) {
+        s = reduceStore(s, { type: 'cpuStep', rng })
+      } else {
+        // 人の警察: 毎回パトカー1 から順にその場で捜索
+        const car = selectableCars(s)[0]
+        s = run(
+          [
+            { type: 'tapPoliceCar', car },
+            { type: 'chooseMode', mode: 'search' },
+          ],
+          s,
+        )
+        s = run([{ type: 'tapBuilding', building: highlightedBuildings(s)[0] }], s)
+      }
+    }
+    expect(s.game.phase).toBe('ended')
+    s = run([{ type: 'newGame' }], s)
+    expect(s.humanSide).toBe('police')
+    expect(run([{ type: 'backToSelect' }], s).humanSide).toBeNull()
   })
 })

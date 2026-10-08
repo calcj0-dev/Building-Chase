@@ -36,3 +36,14 @@ body {
     opacity: 0.8;
   }
 }
+
+/* パトカー・車の移動アニメーション */
+.bc-move {
+  transition: transform 350ms ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bc-move {
+    transition: none;
+  }
+}

@@ -1,24 +1,38 @@
+import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { MAX_ROUNDS, currentRole, getView } from '../../core'
 import {
   highlightedBuildings,
   highlightedIntersections,
+  isCpuTurn,
+  isHumanTurn,
   selectableCars,
   useGameStore,
+  viewRole,
 } from '../../store/gameStore'
 import { Board } from './Board'
 import { ControlPanel } from './ControlPanel'
 import { GameOverBanner, HandoffOverlay } from './Overlays'
 import { RoundBoard } from './RoundBoard'
 
+/** CPU が1手ごとに考える時間（ms）。パトカーは1台ずつこの間隔で動く */
+const CPU_THINK_MS = 700
+
 export function GameScreen() {
   const { t } = useTranslation()
   const store = useGameStore()
-  const { game } = store
+  const { game, humanSide } = store
+  const cpuTurn = isCpuTurn(store)
 
-  // ホットシートでは今の手番の陣営の視点で表示する。決着後は全公開
+  useEffect(() => {
+    if (!cpuTurn) return
+    const timer = setTimeout(() => useGameStore.getState().cpuStep(), CPU_THINK_MS)
+    return () => clearTimeout(timer)
+  }, [cpuTurn, game])
+
+  // 人の陣営の視点で表示する（ホットシートでは手番の陣営）。決着後は全公開
+  const view = getView(game, viewRole(store))
   const turn = currentRole(game)
-  const view = getView(game, turn ?? 'runner')
 
   return (
     <div className="relative mx-auto flex h-full max-w-xl flex-col gap-3 p-3">
@@ -36,10 +50,14 @@ export function GameScreen() {
           {turn && (
             <span
               className={`rounded-full px-3 py-0.5 font-bold ${
-                turn === 'runner' ? 'bg-red-600' : 'bg-sky-600'
+                cpuTurn ? 'bg-slate-600' : turn === 'runner' ? 'bg-red-600' : 'bg-sky-600'
               }`}
             >
-              {t('header.turn', { role: t(`role.${turn}`) })}
+              {humanSide === 'both'
+                ? t('header.turn', { role: t(`role.${turn}`) })
+                : isHumanTurn(store)
+                  ? t('header.yourTurn')
+                  : t('header.cpuThinking')}
             </span>
           )}
         </div>
@@ -62,8 +80,10 @@ export function GameScreen() {
         {game.winner && game.endReason && (
           <GameOverBanner
             winner={game.winner}
+            humanSide={humanSide}
             reason={game.endReason}
             onPlayAgain={store.newGame}
+            onChangeSide={store.backToSelect}
           />
         )}
       </main>

@@ -9,7 +9,9 @@
   "header": {
     "round": "Round {{round}} / {{max}}",
     "setupRound": "配置",
-    "turn": "{{role}}の番"
+    "turn": "{{role}}の番",
+    "yourTurn": "あなたのターン",
+    "cpuThinking": "CPU思考中..."
   },
   "phase": {
     "setup": "配置フェーズ",
@@ -52,6 +54,14 @@
     "arrested": "逮捕",
     "surrounded": "包囲",
     "escaped": "逃走成功",
-    "playAgain": "もう一度遊ぶ"
+    "playAgain": "もう一度遊ぶ",
+    "victory": "VICTORY",
+    "defeat": "DEFEAT",
+    "changeSide": "陣営を選び直す"
+  },
+  "chooser": {
+    "runner": "逃亡者で遊ぶ（VS CPU）",
+    "police": "警察で遊ぶ（VS CPU）",
+    "hotseat": "2人で遊ぶ（1台の端末）"
   }
 }

@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import type { ReactNode } from 'react'
 import { traceColorForRound, type GameState, type SearchRecord } from '../../core'
-import { nextCarToPlace, useGameStore, type PoliceMode } from '../../store/gameStore'
+import { isHumanTurn, nextCarToPlace, useGameStore, type PoliceMode } from '../../store/gameStore'
 
 /** 手順の案内、警察の行動ボタン、直前の捜索結果 */
 export function ControlPanel() {
@@ -13,8 +13,10 @@ export function ControlPanel() {
   const chooseMode = useGameStore((s) => s.chooseMode)
   const cancelSelection = useGameStore((s) => s.cancelSelection)
 
-  const instruction = instructionText(t, game, selectedCar, mode)
-  const showActions = game.phase === 'police' && selectedCar !== null
+  const humanTurn = useGameStore(isHumanTurn)
+  // CPU の手番は操作案内を出さない（ヘッダーに「CPU思考中...」を表示）
+  const instruction = humanTurn ? instructionText(t, game, selectedCar, mode) : null
+  const showActions = humanTurn && game.phase === 'police' && selectedCar !== null
 
   return (
     <div className="flex min-h-28 flex-col items-center gap-3 px-2 text-center">
