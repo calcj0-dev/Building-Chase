@@ -24,7 +24,7 @@ import {
 // 20 21 22 23 24
 
 describe('board constants', () => {
-  it('follows the official City Chase layout', () => {
+  it('follows the original board game layout', () => {
     expect(BUILDING_GRID_SIZE).toBe(5)
     expect(INTERSECTION_GRID_SIZE).toBe(4)
     expect(ALL_BUILDINGS).toHaveLength(25)

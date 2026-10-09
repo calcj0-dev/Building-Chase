@@ -1,5 +1,121 @@
 {
   "app": {
     "title": "Building Chase"
+  },
+  "common": {
+    "back": "Back",
+    "close": "Close",
+    "cancel": "Cancel"
+  },
+  "role": {
+    "runner": "Runner",
+    "police": "Police"
+  },
+  "title": {
+    "tagline": "A game of deduction and pursuit across the city",
+    "start": "Start Game",
+    "help": "How to Play",
+    "settings": "Settings"
+  },
+  "select": {
+    "title": "Choose Your Side",
+    "runner": {
+      "name": "Play as Runner",
+      "description": "Hop from building to building and evade the CPU police for 11 rounds"
+    },
+    "police": {
+      "name": "Play as Police",
+      "description": "Search buildings with 3 helicopters and track down the CPU runner"
+    },
+    "both": {
+      "name": "2 Players",
+      "description": "Share one device and take turns as the runner and the police"
+    }
+  },
+  "help": {
+    "title": "How to Play",
+    "basics": {
+      "heading": "Basics",
+      "body": "The runner wins by hiding in buildings for 11 rounds. The police win by finding the runner with 3 helicopters. Each round, the runner moves first, then the police."
+    },
+    "runner": {
+      "heading": "The Runner",
+      "body": "Each round, move to a building directly above, below, left or right (no diagonals). You leave a trace behind and can never re-enter a building with a trace. If you have nowhere to go, you are caught (surrounded)."
+    },
+    "police": {
+      "heading": "The Police",
+      "body": "Pick a helicopter, then either Move (to an adjacent intersection) or Search (one of the 4 surrounding buildings). The round ends when all 3 have acted. You place the helicopters on any intersections at the start."
+    },
+    "traces": {
+      "heading": "Traces and Deduction",
+      "body": "A search finds either the runner or a trace. Only the 1st trace (yellow) and the 6th trace (red) tell you when the runner was there. Connect the traces to work out where the runner is now."
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "language": "Language",
+    "viewMode": "Board view",
+    "quit": "Quit to Title",
+    "quitConfirm": "End this game and return to the title screen?",
+    "quitYes": "Quit"
+  },
+  "viewMode": {
+    "top": "Top-down",
+    "tilt": "Tilted"
+  },
+  "header": {
+    "round": "Round {{round}} / {{max}}",
+    "setupRound": "Setup",
+    "turn": "{{role}}'s turn",
+    "yourTurn": "Your turn",
+    "cpuThinking": "CPU thinking..."
+  },
+  "phase": {
+    "setup": "SETUP",
+    "runner": "RUNNER PHASE",
+    "police": "POLICE PHASE",
+    "ended": "GAME OVER"
+  },
+  "roundBoard": {
+    "label": "Round board"
+  },
+  "instruction": {
+    "setup": "Tap an intersection to place helicopter {{number}}",
+    "runnerStart": "Tap a building to start from",
+    "runnerMove": "Tap a building to move to",
+    "policeSelectHelicopter": "Tap a helicopter to act",
+    "policeChooseAction": "Choose an action for helicopter {{number}}",
+    "policeMove": "Tap an intersection to move to",
+    "policeSearch": "Tap a building to search"
+  },
+  "action": {
+    "move": "Move",
+    "search": "Search",
+    "back": "Back"
+  },
+  "search": {
+    "nothing": "Helicopter {{number}}: nothing found",
+    "trace": "Helicopter {{number}}: found a trace!",
+    "traceSpecial": "Helicopter {{number}}: key trace found! (#{{round}})",
+    "arrested": "Arrested!"
+  },
+  "handoff": {
+    "title": "{{role}}'s turn",
+    "body": "Hand the device to the {{role}} player, then tap the screen"
+  },
+  "result": {
+    "victory": "VICTORY",
+    "defeat": "DEFEAT",
+    "winner": "{{role}} wins",
+    "reason": {
+      "arrested": "Arrested — the police found the runner",
+      "surrounded": "Surrounded — the runner had nowhere to go",
+      "escaped": "Escaped — the runner survived 11 rounds"
+    },
+    "routeTitle": "The runner's route",
+    "moves": "Moves",
+    "tracesFound": "Traces found",
+    "playAgain": "Play Again",
+    "toTitle": "Title"
   }
 }

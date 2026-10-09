@@ -2,9 +2,66 @@
   "app": {
     "title": "Building Chase"
   },
+  "common": {
+    "back": "戻る",
+    "close": "閉じる",
+    "cancel": "キャンセル"
+  },
   "role": {
     "runner": "逃亡者",
     "police": "警察"
+  },
+  "title": {
+    "tagline": "ビル街で繰り広げる、推理の鬼ごっこ",
+    "start": "ゲームを始める",
+    "help": "遊び方",
+    "settings": "設定"
+  },
+  "select": {
+    "title": "陣営を選ぶ",
+    "runner": {
+      "name": "逃亡者で遊ぶ",
+      "description": "ビルからビルへ逃げ回り、CPU の警察から11ラウンド逃げ切る"
+    },
+    "police": {
+      "name": "警察で遊ぶ",
+      "description": "ヘリコプター3機でビルを捜索し、CPU の逃亡者を見つけ出す"
+    },
+    "both": {
+      "name": "2人で遊ぶ",
+      "description": "1台の端末を交代で使い、逃亡者と警察に分かれて対戦する"
+    }
+  },
+  "help": {
+    "title": "遊び方",
+    "basics": {
+      "heading": "基本ルール",
+      "body": "逃亡者はビルに隠れながら11ラウンド逃げ切れば勝ち。警察はヘリコプター3機でビルを捜索し、逃亡者を見つければ勝ちです。各ラウンドは「逃亡者 → 警察」の順に進みます。"
+    },
+    "runner": {
+      "heading": "逃亡者の動き",
+      "body": "毎ラウンド、縦か横に隣り合うビルへ1つ移動します（斜めは不可）。元いたビルには痕跡が残り、痕跡のあるビルには二度と入れません。動けるビルがなくなると捕まります（包囲）。"
+    },
+    "police": {
+      "heading": "警察の動き",
+      "body": "ヘリコプターを選び「移動（隣の交差点へ）」か「捜索（周りの4棟から1棟）」を行います。3機すべてが行動するとラウンドが終わります。最初にヘリコプターを好きな交差点に配置します。"
+    },
+    "traces": {
+      "heading": "痕跡と推理",
+      "body": "捜索で見つかるのは逃亡者本人か痕跡です。1番目の痕跡（黄）と6番目の痕跡（赤）だけは何手目か分かります。痕跡をつなげて、逃亡者の今いる場所を推理しましょう。"
+    }
+  },
+  "settings": {
+    "title": "設定",
+    "language": "言語",
+    "viewMode": "盤面の視点",
+    "quit": "ゲームをやめてタイトルへ",
+    "quitConfirm": "このゲームを終了してタイトルに戻りますか？",
+    "quitYes": "終了する"
+  },
+  "viewMode": {
+    "top": "真上",
+    "tilt": "斜め"
   },
   "header": {
     "round": "Round {{round}} / {{max}}",
@@ -21,9 +78,6 @@
   },
   "roundBoard": {
     "label": "ラウンドボード"
-  },
-  "policeCar": {
-    "name": "ヘリコプター{{number}}"
   },
   "instruction": {
     "setup": "ヘリコプター{{number}}を置く交差点をタップしてください",
@@ -50,23 +104,18 @@
     "body": "端末を{{role}}のプレイヤーに渡してから、画面をタップしてください"
   },
   "result": {
-    "winner": "{{role}}の勝ち",
-    "arrested": "逮捕",
-    "surrounded": "包囲",
-    "escaped": "逃走成功",
-    "playAgain": "もう一度遊ぶ",
     "victory": "VICTORY",
     "defeat": "DEFEAT",
-    "changeSide": "陣営を選び直す"
-  },
-  "chooser": {
-    "runner": "逃亡者で遊ぶ（VS CPU）",
-    "police": "警察で遊ぶ（VS CPU）",
-    "hotseat": "2人で遊ぶ（1台の端末）"
-  },
-  "viewMode": {
-    "label": "盤面の視点を切り替える",
-    "top": "真上",
-    "tilt": "斜め"
+    "winner": "{{role}}の勝ち",
+    "reason": {
+      "arrested": "逮捕 — 警察が逃亡者を見つけた",
+      "surrounded": "包囲 — 逃亡者が動けなくなった",
+      "escaped": "逃走成功 — 11ラウンド逃げ切った"
+    },
+    "routeTitle": "逃亡者のルート",
+    "moves": "移動した回数",
+    "tracesFound": "見つかった痕跡",
+    "playAgain": "もう一度遊ぶ",
+    "toTitle": "タイトルへ"
   }
 }
