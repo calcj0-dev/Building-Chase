@@ -61,8 +61,12 @@ export function Board({
 }: BoardProps) {
   const traceByBuilding = new Map(view.traces.map((t) => [t.building, t]))
   const showRoute = view.phase === 'ended'
+  // 答え合わせのルート: 痕跡（スタート地点から順）→ 最後にいたビル（痕跡はない）
   const route = showRoute
-    ? [...view.traces].sort((a, b) => (a.round ?? 0) - (b.round ?? 0)).map((t) => t.building)
+    ? [
+        ...[...view.traces].sort((a, b) => (a.round ?? 0) - (b.round ?? 0)).map((t) => t.building),
+        ...(view.runnerPosition !== null ? [view.runnerPosition] : []),
+      ]
     : []
 
   return (

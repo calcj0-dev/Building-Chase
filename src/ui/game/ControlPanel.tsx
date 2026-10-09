@@ -115,8 +115,10 @@ function instructionText(
       const helicopter = nextHelicopterToPlace(game)
       return helicopter === null ? null : t('instruction.setup', { number: helicopter + 1 })
     }
+    case 'hide':
+      return t('instruction.runnerStart')
     case 'runner':
-      return t(game.runnerPosition === null ? 'instruction.runnerStart' : 'instruction.runnerMove')
+      return t('instruction.runnerMove')
     case 'police':
       if (selectedHelicopter === null) return t('instruction.policeSelectHelicopter')
       if (mode === 'move') return t('instruction.policeMove')

@@ -2,8 +2,11 @@ import type { BuildingId, IntersectionId } from './board'
 
 export type Role = 'runner' | 'police'
 
-/** setup: 警察の配置 / runner: 逃亡者フェーズ / police: 警察フェーズ / ended: 決着 */
-export type Phase = 'setup' | 'runner' | 'police' | 'ended'
+/**
+ * setup: 警察がヘリコプターを配置 / hide: 逃亡者がスタート地点に隠れる（ゲーム開始前）/
+ * runner: 逃亡者フェーズ / police: 警察フェーズ / ended: 決着
+ */
+export type Phase = 'setup' | 'hide' | 'runner' | 'police' | 'ended'
 
 export type EndReason = 'arrested' | 'surrounded' | 'escaped'
 
@@ -12,6 +15,7 @@ export type TraceColor = 'yellow' | 'red' | 'blue'
 
 export type HelicopterIndex = 0 | 1 | 2
 
+/** 逃亡者が移動したときに、元いたビルに残す痕跡 */
 export interface Trace {
   round: number
   building: BuildingId
@@ -29,15 +33,15 @@ export interface SearchRecord {
 
 export interface GameState {
   phase: Phase
-  /** 現在のラウンド（1〜11）。配置フェーズ中は 0 */
+  /** 現在のラウンド（1〜11）。ゲーム開始前（setup / hide）は 0 */
   round: number
   /** ヘリコプターの位置。配置前は null */
   helicopters: (IntersectionId | null)[]
   /** 警察フェーズ中に行動済みのヘリコプター */
   actedHelicopters: boolean[]
-  /** 逃亡者の車の位置。Round 1 の移動前は null */
+  /** 逃亡者の位置。スタート地点に隠れる前は null */
   runnerPosition: BuildingId | null
-  /** ラウンド順の痕跡 */
+  /** ラウンド順の痕跡（Round n の移動で、移動前のビルに n 番目の痕跡を残す） */
   traces: Trace[]
   searchLog: SearchRecord[]
   winner: Role | null

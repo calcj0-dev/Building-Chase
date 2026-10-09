@@ -36,11 +36,11 @@
     "title": "How to Play",
     "basics": {
       "heading": "Basics",
-      "body": "The runner wins by hiding in buildings for 11 rounds. The police win by finding the runner with 3 helicopters. Each round, the runner moves first, then the police."
+      "body": "Before the game starts, the runner hides in any building. Each round, the runner moves first, then the police. The runner wins by staying hidden for 11 rounds; the police win by finding the runner with 3 helicopters."
     },
     "runner": {
       "heading": "The Runner",
-      "body": "Each round, move to a building directly above, below, left or right (no diagonals). You leave a trace behind and can never re-enter a building with a trace. If you have nowhere to go, you are caught (surrounded)."
+      "body": "Each round, move to a building directly above, below, left or right (no diagonals). Moving leaves a trace in the building you left, and you can never re-enter a building with a trace. If you have nowhere to go, you are caught (surrounded)."
     },
     "police": {
       "heading": "The Police",
@@ -48,7 +48,7 @@
     },
     "traces": {
       "heading": "Traces and Deduction",
-      "body": "A search finds either the runner or a trace. Only the 1st trace (yellow) and the 6th trace (red) tell you when the runner was there. Connect the traces to work out where the runner is now."
+      "body": "A search finds either the runner or a trace. The 1st trace (yellow) marks the start point and the 6th trace (red) marks where the runner was after 5 moves; only these two show their number. Connect the traces to work out where the runner is now."
     }
   },
   "settings": {
@@ -72,6 +72,7 @@
   },
   "phase": {
     "setup": "SETUP",
+    "hide": "HIDE",
     "runner": "RUNNER PHASE",
     "police": "POLICE PHASE",
     "ended": "GAME OVER"

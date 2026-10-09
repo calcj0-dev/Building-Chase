@@ -35,8 +35,14 @@ export function searchAll(
   )
 }
 
+/** 逃亡者がスタート地点に隠れる（ゲーム開始前。痕跡は使わない） */
+export function hideAt(state: GameState, building: BuildingId): GameState {
+  return applyAction(state, { type: 'runnerMove', building })
+}
+
 /**
- * 逃亡者が path の順に移動し、毎ラウンド警察は idleSearches を捜索する。
+ * 逃亡者が path の位置を順にたどる。毎ラウンド警察は idleSearches を捜索する。
+ * スタート地点に隠れる前の状態から始めた場合、path の先頭はスタート地点。
  * 決着した時点で止まる。
  */
 export function playRounds(
@@ -47,6 +53,10 @@ export function playRounds(
   let s = state
   for (const building of path) {
     if (s.phase === 'ended') break
+    if (s.phase === 'hide') {
+      s = hideAt(s, building)
+      continue
+    }
     s = applyAction(s, { type: 'runnerMove', building })
     s = searchAll(s, idleSearches)
   }

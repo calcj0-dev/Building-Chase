@@ -32,8 +32,16 @@ const PLACE_ALL: StoreEvent[] = [
   { type: 'tapIntersection', intersection: 10 },
 ]
 
+/** ヘリコプター配置 → 端末を逃亡者へ → 24 に隠れる → 23 へ移動（警察の番になる） */
+const TO_POLICE_TURN: StoreEvent[] = [
+  ...PLACE_ALL,
+  { type: 'dismissHandoff' },
+  { type: 'tapBuilding', building: 24 },
+  { type: 'tapBuilding', building: 23 },
+]
+
 describe('setup', () => {
-  it('places cars 1 → 2 → 3 on tapped intersections', () => {
+  it('places helicopters 1 → 2 → 3 on tapped intersections', () => {
     let s = initialStoreState()
     expect(nextHelicopterToPlace(s.game)).toBe(0)
     expect(highlightedIntersections(s)).toHaveLength(16)
@@ -42,7 +50,7 @@ describe('setup', () => {
     expect(highlightedIntersections(s)).not.toContain(0)
     s = run(PLACE_ALL.slice(1), s)
     expect(s.game.helicopters).toEqual([0, 5, 10])
-    expect(s.game.phase).toBe('runner')
+    expect(s.game.phase).toBe('hide')
   })
 
   it('ignores taps on occupied intersections', () => {
@@ -62,18 +70,23 @@ describe('setup', () => {
 })
 
 describe('runner turn', () => {
-  it('moves immediately on a single tap and hands over to police', () => {
-    const s = run([...PLACE_ALL, { type: 'dismissHandoff' }, { type: 'tapBuilding', building: 24 }])
+  it('hides at the start point and moves right away without a handoff', () => {
+    let s = run([...PLACE_ALL, { type: 'dismissHandoff' }, { type: 'tapBuilding', building: 24 }])
     expect(s.game.runnerPosition).toBe(24)
+    expect(s.game.phase).toBe('runner')
+    expect(s.game.traces).toEqual([])
+    expect(s.handoffTo).toBeNull() // 続けて逃亡者が移動する
+    expect([...highlightedBuildings(s)].sort((a, b) => a - b)).toEqual([19, 23])
+    s = run([{ type: 'tapBuilding', building: 23 }], s)
     expect(s.game.phase).toBe('police')
+    expect(s.game.traces).toEqual([{ round: 1, building: 24, found: false }])
     expect(s.handoffTo).toBe('police')
   })
 
   it('ignores taps on buildings that are not highlighted', () => {
-    let s = run([...PLACE_ALL, { type: 'dismissHandoff' }, { type: 'tapBuilding', building: 24 }])
-    s = run([{ type: 'dismissHandoff' }, ...searchAllEvents([0, 6, 12])], s)
+    let s = run([...TO_POLICE_TURN, { type: 'dismissHandoff' }, ...searchAllEvents([0, 6, 12])])
     s = run([{ type: 'dismissHandoff' }, { type: 'tapBuilding', building: 0 }], s) // 隣接していない
-    expect(s.game.runnerPosition).toBe(24)
+    expect(s.game.runnerPosition).toBe(23)
     expect(s.game.phase).toBe('runner')
   })
 })
@@ -88,12 +101,7 @@ function searchAllEvents(buildings: [number, number, number]): StoreEvent[] {
 
 describe('police turn', () => {
   function policeTurn(): GameStoreState {
-    return run([
-      ...PLACE_ALL,
-      { type: 'dismissHandoff' },
-      { type: 'tapBuilding', building: 24 },
-      { type: 'dismissHandoff' },
-    ])
+    return run([...TO_POLICE_TURN, { type: 'dismissHandoff' }])
   }
 
   it('highlights nothing until a helicopter and an action are chosen', () => {
@@ -169,10 +177,11 @@ describe('police turn', () => {
     expect(s.handoffTo).toBe('runner')
   })
 
-  it('ends the game without a handoff when the helicopter is found', () => {
+  it('ends the game without a handoff when the runner is found', () => {
     let s = run([
       ...PLACE_ALL,
       { type: 'dismissHandoff' },
+      { type: 'tapBuilding', building: 1 },
       { type: 'tapBuilding', building: 6 },
       { type: 'dismissHandoff' },
       { type: 'tapHelicopter', helicopter: 0 },
@@ -191,12 +200,12 @@ describe('police turn', () => {
 describe('VS CPU', () => {
   const cpu = (rngSeed: number): StoreEvent => ({ type: 'cpuStep', rng: seededRng(rngSeed) })
 
-  it('lets the CPU police place cars, then waits for the human runner', () => {
+  it('lets the CPU police place helicopters, then waits for the human runner', () => {
     let s = run([{ type: 'startGame', side: 'runner' }])
     expect(isCpuTurn(s)).toBe(true)
     expect(highlightedIntersections(s)).toEqual([]) // 人は警察を操作できない
     s = run([cpu(1), cpu(2), cpu(3)], s)
-    expect(s.game.phase).toBe('runner')
+    expect(s.game.phase).toBe('hide')
     expect(isHumanTurn(s)).toBe(true)
     expect(s.handoffTo).toBeNull() // CPU 戦では端末の受け渡しなし
     expect(highlightedBuildings(s)).toHaveLength(25)
@@ -211,7 +220,10 @@ describe('VS CPU', () => {
   it('shows the human side view and hides the CPU runner', () => {
     let s = run([{ type: 'startGame', side: 'police' }, ...PLACE_ALL])
     expect(viewRole(s)).toBe('police')
-    s = run([cpu(1)], s) // CPU 逃亡者が移動
+    s = run([cpu(1)], s) // CPU 逃亡者がスタート地点に隠れる
+    expect(s.game.phase).toBe('runner')
+    expect(getView(s.game, viewRole(s)).runnerPosition).toBeNull()
+    s = run([cpu(2)], s) // CPU 逃亡者が移動
     expect(s.game.phase).toBe('police')
     expect(getView(s.game, viewRole(s)).runnerPosition).toBeNull()
   })

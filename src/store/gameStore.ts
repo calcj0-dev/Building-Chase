@@ -90,7 +90,7 @@ export function nextHelicopterToPlace(game: GameState): HelicopterIndex | null {
 /** 今光らせるビル */
 export function highlightedBuildings(s: GameStoreState): BuildingId[] {
   if (s.handoffTo !== null || !isHumanTurn(s)) return []
-  if (s.game.phase === 'runner') return runnerMoveTargets(s.game)
+  if (s.game.phase === 'hide' || s.game.phase === 'runner') return runnerMoveTargets(s.game)
   if (s.game.phase === 'police' && s.selectedHelicopter !== null && s.mode === 'search') {
     return policeSearchTargets(s.game, s.selectedHelicopter)
   }
@@ -161,7 +161,7 @@ export function reduceStore(s: GameStoreState, event: StoreEvent): GameStoreStat
 
     case 'tapBuilding': {
       if (!highlightedBuildings(s).includes(event.building)) return s
-      if (s.game.phase === 'runner') {
+      if (s.game.phase === 'hide' || s.game.phase === 'runner') {
         return dispatch(s, { type: 'runnerMove', building: event.building })
       }
       if (s.selectedHelicopter === null) return s

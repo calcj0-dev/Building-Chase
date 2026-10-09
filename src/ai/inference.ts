@@ -15,21 +15,22 @@ export interface RunnerBelief {
 /** 推理に使う情報。GameView のうち警察にも見えている部分だけ */
 export type PoliceKnowledge = Pick<GameView, 'traceCount' | 'traces' | 'searchLog'>
 
-const NO_LIMIT = 0
+/** 捜索による制限なし（位置の番号は 0 から始まるので -1） */
+const NO_LIMIT = -1
 
 /**
  * 警察の知識と矛盾しない逃亡者の移動ルート（自己回避のウォーク）をすべて数え上げる。
- * - 「何もない」捜索（ラウンド r, ビル b）: 1〜r 手目のどれも b ではない
- * - 発見した痕跡: 黄なら 1 手目、赤なら 6 手目、青なら発見より前の 1・6 手目以外のどこか
+ * ルートは位置 p0（スタート地点）〜 pn（今いるビル）。n は移動した回数（= 置かれた痕跡の数）。
+ * Round k の移動で、移動前のビル p(k-1) に k 番目の痕跡が残る。
+ * - 「何もない」捜索（ラウンド r, ビル b）: p0〜pr のどれも b ではない
+ * - 発見した痕跡: 黄（1番目）なら p0、赤（6番目）なら p5、青なら発見より前のそれ以外の位置
  */
 export function inferRunner(knowledge: PoliceKnowledge): RunnerBelief {
   const n = knowledge.traceCount
   const here = new Array<number>(BUILDING_COUNT).fill(0)
   const visited = new Array<number>(BUILDING_COUNT).fill(0)
   const next = new Array<number>(BUILDING_COUNT).fill(0)
-  if (n === 0) return { pathCount: 0, here, visited, next }
-
-  // forbiddenThrough[b] = k: 1〜k 手目は b にいられない
+  // forbiddenThrough[b] = k: 位置 p0〜pk は b ではない
   const forbiddenThrough = new Array<number>(BUILDING_COUNT).fill(NO_LIMIT)
   for (const s of knowledge.searchLog) {
     if (s.outcome === 'nothing') {
@@ -38,18 +39,19 @@ export function inferRunner(knowledge: PoliceKnowledge): RunnerBelief {
   }
 
   // 発見済みの痕跡 → 何手目に通ったかの制約
-  const fixedStep = new Map<number, BuildingId>() // 手番 → ビル（黄・赤）
-  const fixedBuilding = new Map<BuildingId, number>() // ビル → 手番
-  const blueBefore = new Map<BuildingId, number>() // 青: この手番より前に通った
+  const fixedStep = new Map<number, BuildingId>() // 位置の番号 → ビル（黄・赤）
+  const fixedBuilding = new Map<BuildingId, number>() // ビル → 位置の番号
+  const blueBefore = new Map<BuildingId, number>() // 青: この位置の番号より前にいた
   for (const t of knowledge.traces) {
     if (!t.found) continue
     if (t.color === 'blue') {
       const firstFound = knowledge.searchLog.find(
         (s) => s.building === t.building && s.outcome === 'trace',
       )
-      blueBefore.set(t.building, firstFound?.round ?? n + 1)
+      // Round r の捜索で見つかった痕跡は p0〜p(r-1) のどこかに置かれたもの
+      blueBefore.set(t.building, firstFound?.round ?? n)
     } else {
-      const step = t.color === 'yellow' ? 1 : 6
+      const step = t.color === 'yellow' ? 0 : 5
       fixedStep.set(step, t.building)
       fixedBuilding.set(t.building, step)
     }
@@ -67,7 +69,9 @@ export function inferRunner(knowledge: PoliceKnowledge): RunnerBelief {
     if (required !== undefined) return b === required
     if (fixedBuilding.has(b)) return false
     const before = blueBefore.get(b)
-    if (before !== undefined && (step >= before || step === 1 || step === 6)) return false
+    if (before !== undefined && (step >= before || step >= n || step === 0 || step === 5)) {
+      return false
+    }
     return true
   }
 
@@ -82,7 +86,7 @@ export function inferRunner(knowledge: PoliceKnowledge): RunnerBelief {
   }
 
   const walk = (step: number) => {
-    const candidates = step === 1 ? null : BUILDING_NEIGHBORS[path[path.length - 1]]
+    const candidates = step === 0 ? null : BUILDING_NEIGHBORS[path[path.length - 1]]
     const count = candidates ? candidates.length : BUILDING_COUNT
     for (let i = 0; i < count; i++) {
       const b = candidates ? candidates[i] : i
@@ -95,7 +99,7 @@ export function inferRunner(knowledge: PoliceKnowledge): RunnerBelief {
       path.pop()
     }
   }
-  walk(1)
+  walk(0)
 
   if (pathCount > 0) {
     for (let b = 0; b < BUILDING_COUNT; b++) {

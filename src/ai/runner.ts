@@ -42,14 +42,20 @@ export function chooseRunnerAction(
   rng: Rng,
   weights: RunnerWeights = DEFAULT_RUNNER_WEIGHTS,
 ): Action {
-  if (state.phase !== 'runner') throw new Error(`Runner cannot act in phase ${state.phase}`)
+  if (state.phase !== 'hide' && state.phase !== 'runner') {
+    throw new Error(`Runner cannot act in phase ${state.phase}`)
+  }
   const targets = runnerMoveTargets(state)
 
-  // この移動の後に警察が持つ推理（移動先によらず共通）
+  // この行動の後に警察が持つ推理（移動先によらず共通）。スタート地点を選ぶときは痕跡が増えない
   const policeView = getView(state, 'police')
-  const belief = inferRunner({ ...policeView, traceCount: policeView.traceCount + 1 })
+  const movesAfter = policeView.traceCount + (state.phase === 'runner' ? 1 : 0)
+  const belief = inferRunner({ ...policeView, traceCount: movesAfter })
 
+  // 痕跡のあるビルと、これから離れるビル（移動すると痕跡が残る）には戻れない
   const visited = new Set(state.traces.map((t) => t.building))
+  if (state.runnerPosition !== null) visited.add(state.runnerPosition)
+  // この行動の後に残っている移動の回数（スタート地点を選ぶときは Round 1〜11 の 11 回）
   const movesLeftAfter = MAX_ROUNDS - state.round
 
   // ヘリコプターが今いる交差点と、1手で移動できる交差点（次ラウンドに捜索できる位置）

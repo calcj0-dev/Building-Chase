@@ -46,6 +46,7 @@ export function currentRole(state: GameState): Role | null {
     case 'setup':
     case 'police':
       return 'police'
+    case 'hide':
     case 'runner':
       return 'runner'
     case 'ended':
@@ -53,10 +54,10 @@ export function currentRole(state: GameState): Role | null {
   }
 }
 
-/** 逃亡者が今移動できるビル */
+/** 逃亡者が今選べるビル（スタート地点は全ビル、以降は縦横に隣接し痕跡のないビル） */
 export function runnerMoveTargets(state: GameState): BuildingId[] {
-  if (state.phase !== 'runner') return []
-  if (state.runnerPosition === null) return [...ALL_BUILDINGS]
+  if (state.phase === 'hide') return [...ALL_BUILDINGS]
+  if (state.phase !== 'runner' || state.runnerPosition === null) return []
   const visited = new Set(state.traces.map((t) => t.building))
   return BUILDING_NEIGHBORS[state.runnerPosition].filter((b) => !visited.has(b))
 }
@@ -90,6 +91,7 @@ export function getLegalActions(state: GameState): Action[] {
           intersection,
         })),
       )
+    case 'hide':
     case 'runner':
       return runnerMoveTargets(state).map((building): Action => ({ type: 'runnerMove', building }))
     case 'police':
@@ -142,20 +144,30 @@ function placePolice(
   return {
     ...state,
     helicopters,
-    ...(allPlaced ? { phase: 'runner' as const, round: 1 } : {}),
+    ...(allPlaced ? { phase: 'hide' as const } : {}),
   }
 }
 
+/**
+ * hide: スタート地点に隠れる（痕跡は使わない）。続けて Round 1 の逃亡者フェーズへ
+ * runner: 隣のビルへ移動し、元いたビルにそのラウンドの痕跡を残す
+ */
 function runnerMove(state: GameState, building: BuildingId): GameState {
-  if (state.phase !== 'runner') throw new IllegalActionError('Not in runner phase')
+  if (state.phase !== 'hide' && state.phase !== 'runner') {
+    throw new IllegalActionError('Not in runner phase')
+  }
   if (!runnerMoveTargets(state).includes(building)) {
     throw new IllegalActionError(`Runner cannot move to building ${building}`)
   }
+  if (state.phase === 'hide') {
+    return { ...state, phase: 'runner', round: 1, runnerPosition: building }
+  }
+  const from = state.runnerPosition as BuildingId
   return {
     ...state,
     phase: 'police',
     runnerPosition: building,
-    traces: [...state.traces, { round: state.round, building, found: false }],
+    traces: [...state.traces, { round: state.round, building: from, found: false }],
     actedHelicopters: state.actedHelicopters.map(() => false),
   }
 }
