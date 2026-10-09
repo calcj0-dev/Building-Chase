@@ -62,8 +62,10 @@ export function GameScreen() {
           : t('header.cpuThinking')
 
   return (
-    <div className="relative mx-auto flex min-h-full max-w-xl flex-col gap-2 px-3 pt-[max(12px,env(safe-area-inset-top))] pb-[max(12px,env(safe-area-inset-bottom))]">
-      <header className="bc-card flex flex-col gap-3 rounded-2xl p-3">
+    // 縦長の画面: 上にヘッダー / 中央に盤面 / 下に操作パネル
+    // 横長の画面（PC・スマホ横向き）: 左にヘッダーと操作パネル / 右に盤面
+    <div className="relative mx-auto flex h-dvh max-w-xl flex-col gap-2 px-3 pt-[max(12px,env(safe-area-inset-top))] pb-[max(12px,env(safe-area-inset-bottom))] landscape:grid landscape:max-w-6xl landscape:grid-cols-[minmax(240px,1fr)_auto] landscape:grid-rows-[auto_1fr] landscape:gap-x-3 landscape:px-[max(8px,env(safe-area-inset-left))] landscape:py-2">
+      <header className="bc-card flex flex-col gap-3 rounded-2xl p-3 landscape:col-start-1 landscape:row-start-1">
         <div className="flex items-center justify-between gap-2">
           <div className="flex flex-col leading-tight">
             <span className="text-[10px] font-bold tracking-[0.2em] text-slate-400">
@@ -98,7 +100,7 @@ export function GameScreen() {
             <button
               type="button"
               onClick={openSettings}
-              className="flex size-10 shrink-0 items-center justify-center rounded-full border border-white/15 text-slate-200"
+              className="flex size-11 shrink-0 items-center justify-center rounded-full border border-white/15 text-slate-200"
               aria-label={t('settings.title')}
             >
               <SettingsIcon />
@@ -108,8 +110,10 @@ export function GameScreen() {
         <RoundBoard traceCount={view.traceCount} round={game.round} />
       </header>
 
-      <main className="flex flex-1 flex-col items-center justify-center">
+      <main className="flex min-h-0 flex-1 items-center justify-center landscape:col-start-2 landscape:row-span-2 landscape:row-start-1">
+        {/* 盤面は残りのスペースいっぱいに表示する（横長の画面では高さに合わせて幅が決まる） */}
         <Board
+          className="h-full w-full landscape:w-auto landscape:max-w-[calc(100vw-260px)]"
           view={view}
           viewMode={viewMode}
           highlightedBuildings={highlightedBuildings(store)}
@@ -123,7 +127,7 @@ export function GameScreen() {
         />
       </main>
 
-      <footer className="bc-card flex min-h-32 flex-col items-center justify-center gap-3 rounded-2xl p-3">
+      <footer className="bc-card flex min-h-32 flex-col items-center justify-center gap-3 rounded-2xl p-3 landscape:col-start-1 landscape:row-start-2 landscape:self-start">
         <ControlPanel />
       </footer>
 

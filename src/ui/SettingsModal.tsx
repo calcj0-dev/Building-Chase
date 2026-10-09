@@ -19,12 +19,12 @@ export function SettingsModal() {
 
   return (
     <div
-      className="fixed inset-0 z-30 flex items-end justify-center bg-slate-950/70 p-3 sm:items-center"
+      className="fixed inset-0 z-30 flex items-end justify-center bg-slate-950/70 p-3 sm:items-center landscape:items-center"
       role="dialog"
       aria-modal="true"
       aria-labelledby="settings-title"
     >
-      <div className="bc-card bc-pop flex w-full max-w-sm flex-col gap-5 rounded-3xl p-5">
+      <div className="bc-card bc-pop flex max-h-[calc(100dvh-1.5rem)] w-full max-w-sm flex-col gap-5 overflow-y-auto rounded-3xl p-5">
         <h2 id="settings-title" className="text-xl font-extrabold">
           {t('settings.title')}
         </h2>

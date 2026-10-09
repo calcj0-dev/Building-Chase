@@ -45,6 +45,8 @@ interface BoardProps {
   onTapBuilding(building: BuildingId): void
   onTapIntersection(intersection: IntersectionId): void
   onTapHelicopter(helicopter: HelicopterIndex): void
+  /** 盤面の大きさの指定（画面ごとに高さの上限を変える） */
+  className?: string
 }
 
 export function Board({
@@ -58,6 +60,7 @@ export function Board({
   onTapBuilding,
   onTapIntersection,
   onTapHelicopter,
+  className = '',
 }: BoardProps) {
   const traceByBuilding = new Map(view.traces.map((t) => [t.building, t]))
   const showRoute = view.phase === 'ended'
@@ -72,8 +75,7 @@ export function Board({
   return (
     <svg
       viewBox={viewBox(mode)}
-      // ヘッダーと操作パネルが常に画面内に収まるよう、盤面の高さに上限を設ける
-      className="h-auto max-h-[calc(100dvh-23rem)] w-full touch-manipulation select-none"
+      className={`touch-manipulation select-none ${className || 'h-auto w-full'}`}
       role="img"
       aria-label="Building Chase board"
     >
@@ -185,7 +187,7 @@ export function Board({
               <circle cx={g.x} cy={g.y} r={5} fill="#fde68a" />
             </g>
             {/* タップしやすいよう当たり判定を広げる */}
-            <circle cx={g.x} cy={g.y} r={30} fill="transparent" />
+            <circle cx={g.x} cy={g.y} r={36} fill="transparent" />
           </g>
         )
       })}
@@ -650,7 +652,7 @@ function Helicopter({
               cx={6}
               cy={-6}
               rx={hitArea === 'wide' ? 44 : 32}
-              ry={hitArea === 'wide' ? 32 : 24}
+              ry={hitArea === 'wide' ? 34 : 30}
               fill="transparent"
             />
           )}
