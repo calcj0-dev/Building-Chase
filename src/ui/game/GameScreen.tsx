@@ -1,6 +1,12 @@
-import { useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { FINAL_SEARCH_ROUND, MAX_ROUNDS, currentRole, getView } from '../../core'
+import {
+  FINAL_SEARCH_ROUND,
+  MAX_ROUNDS,
+  currentRole,
+  getView,
+  traceColorForRound,
+} from '../../core'
 import {
   highlightedBuildings,
   highlightedIntersections,
@@ -13,7 +19,8 @@ import {
 import { useAppStore } from '../../store/appStore'
 import { useSettingsStore } from '../../store/settingsStore'
 import { SettingsIcon } from '../icons'
-import { Board } from './Board'
+import { Board, type SearchEffect } from './Board'
+import { ArrestOverlay, SpecialTraceBanner, TurnCutIn } from './Effects'
 import { ControlPanel } from './ControlPanel'
 import { HandoffOverlay } from './Overlays'
 import { RoundBoard } from './RoundBoard'
@@ -21,7 +28,7 @@ import { RoundBoard } from './RoundBoard'
 /** CPU が1手ごとに考える時間（ms）。ヘリコプターは1機ずつこの間隔で動く */
 const CPU_THINK_MS = 700
 /** 決着してからリザルト画面へ移るまでの時間（ms）。逮捕などの結果を盤面で見せる */
-const RESULT_DELAY_MS = 1600
+const RESULT_DELAY_MS = 1800
 
 export function GameScreen() {
   const { t } = useTranslation()
@@ -33,12 +40,49 @@ export function GameScreen() {
   const openSettings = useAppStore((s) => s.openSettings)
   const go = useAppStore((s) => s.go)
 
-  // CPU の手番を進める。設定画面を開いている間は止める
+  // ===== 演出 =====
+  // ターン切り替えのカットイン（VS CPU のみ。2人で遊ぶでは「端末を渡す」画面が同じ役目）
+  const turnOwner =
+    humanSide === 'both' || game.phase === 'ended' ? null : isHumanTurn(store) ? 'your' : 'enemy'
+  const [cutIn, setCutIn] = useState<'your' | 'enemy' | null>(null)
+  const [lastOwner, setLastOwner] = useState<typeof turnOwner>(null)
+  if (turnOwner !== lastOwner) {
+    setLastOwner(turnOwner)
+    setCutIn(turnOwner)
+  }
+  const hideCutIn = useCallback(() => setCutIn(null), [])
+
+  // 直前の捜索の演出と、黄・赤の痕跡を見つけたときのバナー
+  const searchKey = game.searchLog.length
+  const lastSearch = store.lastSearch
+  const foundTrace =
+    lastSearch?.outcome === 'trace'
+      ? game.traces.find((tr) => tr.building === lastSearch.building)
+      : undefined
+  const searchEffect: SearchEffect | null = lastSearch
+    ? {
+        key: searchKey,
+        building: lastSearch.building,
+        outcome: lastSearch.outcome,
+        traceColor: foundTrace ? traceColorForRound(foundTrace.round) : null,
+      }
+    : null
+  const specialRound =
+    foundTrace && traceColorForRound(foundTrace.round) !== 'blue' ? foundTrace.round : null
+  const [bannerKey, setBannerKey] = useState<number | null>(null)
+  const [shownBannerFor, setShownBannerFor] = useState(0)
+  if (specialRound !== null && shownBannerFor !== searchKey) {
+    setShownBannerFor(searchKey)
+    setBannerKey(searchKey)
+  }
+  const hideBanner = useCallback(() => setBannerKey(null), [])
+
+  // CPU の手番を進める。設定画面を開いている間とカットインの間は止める
   useEffect(() => {
-    if (!cpuTurn || settingsOpen) return
+    if (!cpuTurn || settingsOpen || cutIn) return
     const timer = setTimeout(() => useGameStore.getState().cpuStep(), CPU_THINK_MS)
     return () => clearTimeout(timer)
-  }, [cpuTurn, game, settingsOpen])
+  }, [cpuTurn, game, settingsOpen, cutIn])
 
   // 決着したら少し間を置いてリザルト画面へ
   const ended = game.phase === 'ended'
@@ -124,6 +168,7 @@ export function GameScreen() {
           onTapBuilding={store.tapBuilding}
           onTapIntersection={store.tapIntersection}
           onTapHelicopter={store.tapHelicopter}
+          searchEffect={searchEffect}
         />
       </main>
 
@@ -134,6 +179,11 @@ export function GameScreen() {
       {store.handoffTo && (
         <HandoffOverlay role={store.handoffTo} onDismiss={store.dismissHandoff} />
       )}
+      {cutIn && !settingsOpen && <TurnCutIn key={cutIn} kind={cutIn} onDone={hideCutIn} />}
+      {bannerKey !== null && specialRound !== null && (
+        <SpecialTraceBanner key={bannerKey} round={specialRound} onDone={hideBanner} />
+      )}
+      {game.endReason === 'arrested' && <ArrestOverlay />}
     </div>
   )
 }

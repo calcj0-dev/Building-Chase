@@ -5,6 +5,8 @@ import {
   type GameView,
   type HelicopterIndex,
   type IntersectionId,
+  type SearchOutcome,
+  type TraceColor,
   type VisibleTrace,
 } from '../../core'
 import type { ViewMode } from '../../store/settingsStore'
@@ -47,6 +49,16 @@ interface BoardProps {
   onTapHelicopter(helicopter: HelicopterIndex): void
   /** 盤面の大きさの指定（画面ごとに高さの上限を変える） */
   className?: string
+  /** 直前の捜索の演出（ビルが持ち上がり、結果のマークが浮かぶ）。key が変わるたびに再生する */
+  searchEffect?: SearchEffect | null
+}
+
+export interface SearchEffect {
+  key: number
+  building: BuildingId
+  outcome: SearchOutcome
+  /** 痕跡が見つかったときの色 */
+  traceColor: TraceColor | null
 }
 
 export function Board({
@@ -61,6 +73,7 @@ export function Board({
   onTapIntersection,
   onTapHelicopter,
   className = '',
+  searchEffect = null,
 }: BoardProps) {
   const traceByBuilding = new Map(view.traces.map((t) => [t.building, t]))
   const showRoute = view.phase === 'ended'
@@ -111,10 +124,12 @@ export function Board({
 
       {ALL_BUILDINGS.map((id) => (
         <Building
-          key={`b${id}`}
+          // 捜索されたビルは key を変えて、持ち上がるアニメーションを毎回最初から再生する
+          key={`b${id}-${searchEffect?.building === id ? searchEffect.key : 0}`}
           mode={mode}
           id={id}
           highlighted={highlightedBuildings.includes(id)}
+          lifting={searchEffect?.building === id}
           onTap={onTapBuilding}
         />
       ))}
@@ -144,6 +159,9 @@ export function Board({
         />
       )}
       {showRoute && <RouteNumbers mode={mode} traces={view.traces} />}
+      {searchEffect && (
+        <SearchResultMark key={searchEffect.key} mode={mode} effect={searchEffect} />
+      )}
 
       {view.helicopters.map((at, i) => {
         if (at === null) return null
@@ -277,11 +295,13 @@ function Building({
   mode,
   id,
   highlighted,
+  lifting,
   onTap,
 }: {
   mode: ViewMode
   id: BuildingId
   highlighted: boolean
+  lifting: boolean
   onTap(id: BuildingId): void
 }) {
   const { x0, y0, y1, h } = buildingBox(id)
@@ -298,7 +318,7 @@ function Building({
       data-building={id}
       data-highlighted={highlighted || undefined}
       onClick={highlighted ? () => onTap(id) : undefined}
-      className={highlighted ? 'cursor-pointer' : undefined}
+      className={`${highlighted ? 'cursor-pointer' : ''} ${lifting ? 'bc-lift' : ''}`}
     >
       {wallHeight > 0 && (
         <FrontWall id={id} x={x0} y={roofBottomY} height={wallHeight} color={colors.wall} />
@@ -657,6 +677,51 @@ function Helicopter({
             />
           )}
         </g>
+      </g>
+    </g>
+  )
+}
+
+/** 捜索結果のマーク: 何もない = ×、痕跡 = その色のコマ、逃亡者 = 赤い警告マーク */
+function SearchResultMark({ mode, effect }: { mode: ViewMode; effect: SearchEffect }) {
+  const p = roofCenter(mode, effect.building)
+  const ringColor =
+    effect.outcome === 'runner'
+      ? '#ef4444'
+      : effect.outcome === 'trace'
+        ? TRACE_COLORS[effect.traceColor ?? 'blue']
+        : '#94a3b8'
+  return (
+    <g pointerEvents="none" transform={`translate(${p.x}, ${p.y})`}>
+      <circle className="bc-ripple" r={44} fill="none" stroke={ringColor} strokeWidth={5} />
+      <g className="bc-badge">
+        {effect.outcome === 'nothing' && (
+          <g>
+            <circle r={18} fill="#1e293b" stroke="#94a3b8" strokeWidth={3} />
+            <path
+              d="M -7 -7 L 7 7 M 7 -7 L -7 7"
+              stroke="#e2e8f0"
+              strokeWidth={4}
+              strokeLinecap="round"
+            />
+          </g>
+        )}
+        {effect.outcome === 'trace' && (
+          <g>
+            <circle r={20} fill={ringColor} stroke="#f8fafc" strokeWidth={3} />
+            <text y={7} textAnchor="middle" fontSize={20} fontWeight="bold" fill="#0f172a">
+              !
+            </text>
+          </g>
+        )}
+        {effect.outcome === 'runner' && (
+          <g>
+            <circle r={22} fill="#dc2626" stroke="#fef2f2" strokeWidth={3} />
+            <text y={8} textAnchor="middle" fontSize={24} fontWeight="900" fill="#fff">
+              !
+            </text>
+          </g>
+        )}
       </g>
     </g>
   )

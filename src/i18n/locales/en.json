@@ -120,5 +120,11 @@
     "tracesFound": "Traces found",
     "playAgain": "Play Again",
     "toTitle": "Title"
+  },
+  "effect": {
+    "keyTrace": "Key trace found!",
+    "keyTraceDetail": "Trace #{{round}}",
+    "arrested": "ARRESTED!",
+    "nothing": "None"
   }
 }

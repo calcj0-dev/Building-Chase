@@ -172,3 +172,149 @@ body {
     animation: none;
   }
 }
+
+/* ===== Phase 7: 演出 ===== */
+
+/* 捜索: ビルが持ち上がって戻る */
+@keyframes bc-lift {
+  0% {
+    transform: translateY(0);
+  }
+  35% {
+    transform: translateY(-16px);
+  }
+  70% {
+    transform: translateY(-16px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+.bc-lift {
+  animation: bc-lift 900ms ease-in-out;
+}
+
+/* 捜索結果のマークが浮かび上がって消える */
+@keyframes bc-badge {
+  0% {
+    opacity: 0;
+    transform: translateY(6px) scale(0.6);
+  }
+  25% {
+    opacity: 1;
+    transform: translateY(-10px) scale(1.1);
+  }
+  80% {
+    opacity: 1;
+    transform: translateY(-14px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-18px) scale(1);
+  }
+}
+
+.bc-badge {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: bc-badge 1300ms ease-out forwards;
+}
+
+/* 捜索の位置に広がる波紋 */
+@keyframes bc-ripple {
+  from {
+    opacity: 0.9;
+    transform: scale(0.3);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.6);
+  }
+}
+
+.bc-ripple {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: bc-ripple 900ms ease-out forwards;
+}
+
+/* ターン切り替えのカットイン */
+@keyframes bc-cutin {
+  0% {
+    opacity: 0;
+    transform: translateX(-40px) skewX(-8deg);
+  }
+  18% {
+    opacity: 1;
+    transform: translateX(0) skewX(-8deg);
+  }
+  80% {
+    opacity: 1;
+    transform: translateX(0) skewX(-8deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(40px) skewX(-8deg);
+  }
+}
+
+.bc-cutin {
+  animation: bc-cutin 1000ms ease-in-out forwards;
+}
+
+/* 重要な痕跡・逮捕のバナー */
+@keyframes bc-banner {
+  0% {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+  15% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+  25% {
+    transform: scale(1);
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.bc-banner {
+  animation: bc-banner 1500ms ease-out forwards;
+}
+
+/* 逮捕: 回転灯のように赤と青が交互に光る */
+@keyframes bc-siren-flash {
+  0%,
+  49% {
+    background: radial-gradient(circle at 30% 50%, rgb(239 68 68 / 0.45), transparent 60%);
+  }
+  50%,
+  100% {
+    background: radial-gradient(circle at 70% 50%, rgb(59 130 246 / 0.45), transparent 60%);
+  }
+}
+
+.bc-siren-flash {
+  animation: bc-siren-flash 0.5s steps(1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bc-lift,
+  .bc-ripple,
+  .bc-siren-flash {
+    animation: none;
+  }
+  .bc-badge,
+  .bc-cutin,
+  .bc-banner {
+    animation-duration: 1ms;
+    animation-delay: 0s;
+    animation-fill-mode: none;
+  }
+}

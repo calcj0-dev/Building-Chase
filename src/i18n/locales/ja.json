@@ -120,5 +120,11 @@
     "tracesFound": "見つかった痕跡",
     "playAgain": "もう一度遊ぶ",
     "toTitle": "タイトルへ"
+  },
+  "effect": {
+    "keyTrace": "重要な痕跡を発見！",
+    "keyTraceDetail": "{{round}}番目の痕跡",
+    "arrested": "逮捕！",
+    "nothing": "なし"
   }
 }
