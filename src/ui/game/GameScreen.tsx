@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { MAX_ROUNDS, currentRole, getView } from '../../core'
+import { FINAL_SEARCH_ROUND, MAX_ROUNDS, currentRole, getView } from '../../core'
 import {
   highlightedBuildings,
   highlightedIntersections,
@@ -72,10 +72,12 @@ export function GameScreen() {
             <span className="font-mono text-xl font-extrabold tracking-wide whitespace-nowrap">
               {game.round === 0
                 ? t('header.setupRound')
-                : t('header.round', {
-                    round: String(game.round).padStart(2, '0'),
-                    max: MAX_ROUNDS,
-                  })}
+                : game.round >= FINAL_SEARCH_ROUND
+                  ? t('header.finalSearch')
+                  : t('header.round', {
+                      round: String(game.round).padStart(2, '0'),
+                      max: MAX_ROUNDS,
+                    })}
             </span>
           </div>
           <div className="ml-auto flex items-center gap-2">

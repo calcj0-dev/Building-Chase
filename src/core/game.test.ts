@@ -101,34 +101,58 @@ describe('hiding at the start point', () => {
     expect(runnerMoveTargets(hidePhase())).toHaveLength(25)
   })
 
-  it('does not use a trace, and the runner moves next in round 1', () => {
+  it('does not use a trace, and police act first in round 1', () => {
     const s = hideAt(hidePhase(), 12)
     expect(s.runnerPosition).toBe(12)
     expect(s.traces).toEqual([])
-    expect(s.phase).toBe('runner')
+    expect(s.phase).toBe('police')
     expect(s.round).toBe(1)
-    expect(currentRole(s)).toBe('runner')
+    expect(currentRole(s)).toBe('police')
+  })
+
+  it('lets police search the start point before the runner moves', () => {
+    // ヘリコプター2 は交差点3（ビル 3, 4, 8, 9）。逃亡者は 8 に隠れた
+    const s = applyAction(hideAt(hidePhase(), 8), {
+      type: 'policeSearch',
+      helicopter: 2,
+      building: 8,
+    })
+    expect(s.winner).toBe('police')
+    expect(s.endReason).toBe('arrested')
   })
 })
 
 describe('runner phase', () => {
+  /** 12 に隠れ、Round 1 の警察が行動し終えたところ */
+  function runnerTurn(): GameState {
+    return searchAll(hideAt(hidePhase(), 12), IDLE_SEARCHES)
+  }
+
+  it('comes after the police phase of the same round', () => {
+    const s = runnerTurn()
+    expect(s.phase).toBe('runner')
+    expect(s.round).toBe(1)
+  })
+
   it('only allows orthogonally adjacent buildings', () => {
-    const s = hideAt(hidePhase(), 12)
+    const s = runnerTurn()
     expect([...runnerMoveTargets(s)].sort((a, b) => a - b)).toEqual([7, 11, 13, 17])
     expect(() => applyAction(s, { type: 'runnerMove', building: 6 })).toThrow(IllegalActionError) // 斜め
     expect(() => applyAction(s, { type: 'runnerMove', building: 14 })).toThrow(IllegalActionError) // 2マス先
   })
 
   it('leaves the yellow trace at the start point on the first move', () => {
-    const s = applyAction(hideAt(hidePhase(), 12), { type: 'runnerMove', building: 13 })
+    const s = applyAction(runnerTurn(), { type: 'runnerMove', building: 13 })
     expect(s.runnerPosition).toBe(13)
     expect(s.traces).toEqual([{ round: 1, building: 12, found: false }])
     expect(s.phase).toBe('police')
+    expect(s.round).toBe(2)
     expect(currentRole(s)).toBe('police')
   })
 
   it('never allows returning to a building with a trace', () => {
     let s = playRounds(hidePhase(), [12, 13], IDLE_SEARCHES)
+    s = searchAll(s, IDLE_SEARCHES)
     expect(runnerMoveTargets(s)).not.toContain(12)
     expect(() => applyAction(s, { type: 'runnerMove', building: 12 })).toThrow(IllegalActionError)
     s = applyAction(s, { type: 'runnerMove', building: 14 })
@@ -148,14 +172,15 @@ describe('runner phase', () => {
       [6, 5], // 赤: 5回移動した後にいたビル
     ])
     expect(s.runnerPosition).toBe(10)
+    expect(s.phase).toBe('police')
     expect(s.round).toBe(7)
   })
 })
 
 describe('police phase', () => {
   function policePhase(): GameState {
-    // ヘリコプター: 0, 5, 10 / 逃亡者: 24 に隠れて 23 へ移動（警察の手番の直前）
-    return applyAction(hideAt(placeAll([0, 5, 10]), 24), { type: 'runnerMove', building: 23 })
+    // ヘリコプター: 0, 5, 10 / 逃亡者: 24 に隠れた直後（Round 1 の警察フェーズ）
+    return hideAt(placeAll([0, 5, 10]), 24)
   }
 
   it('offers orthogonal moves to free intersections plus 4 searches per helicopter', () => {
@@ -216,9 +241,19 @@ describe('police phase', () => {
     expect(s.actedHelicopters).toEqual([true, false, true])
   })
 
-  it('starts the next round after all 3 helicopters act', () => {
+  it('hands over to the runner in the same round after all 3 helicopters act', () => {
     const s = searchAll(policePhase(), [0, 6, 12])
     expect(s.phase).toBe('runner')
+    expect(s.round).toBe(1)
+    expect(s.actedHelicopters).toEqual([true, true, true])
+  })
+
+  it('resets the helicopters after the runner moves', () => {
+    const s = applyAction(searchAll(policePhase(), [0, 6, 12]), {
+      type: 'runnerMove',
+      building: 23,
+    })
+    expect(s.phase).toBe('police')
     expect(s.round).toBe(2)
     expect(s.actedHelicopters).toEqual([false, false, false])
   })
@@ -227,19 +262,16 @@ describe('police phase', () => {
     expect(() =>
       applyAction(hidePhase(), { type: 'policeMove', helicopter: 0, intersection: 11 }),
     ).toThrow(IllegalActionError)
+    const runner = searchAll(hideAt(hidePhase(), 0), IDLE_SEARCHES)
     expect(() =>
-      applyAction(hideAt(hidePhase(), 0), { type: 'policeMove', helicopter: 0, intersection: 11 }),
+      applyAction(runner, { type: 'policeMove', helicopter: 0, intersection: 11 }),
     ).toThrow(IllegalActionError)
   })
 })
 
 describe('search', () => {
   it('finds nothing in an empty building', () => {
-    const start = applyAction(hideAt(placeAll([0, 5, 10]), 24), {
-      type: 'runnerMove',
-      building: 23,
-    })
-    const s = applyAction(start, {
+    const s = applyAction(hideAt(placeAll([0, 5, 10]), 24), {
       type: 'policeSearch',
       helicopter: 0,
       building: 0,
@@ -249,17 +281,15 @@ describe('search', () => {
   })
 
   it('finds the start point trace after the first move', () => {
-    // 逃亡者: 6 に隠れて 7 へ。ヘリコプター0（交差点0）がビル6を捜索
-    let s = playRounds(placeAll([0, 3, 15]), [6], IDLE_SEARCHES)
-    s = applyAction(s, { type: 'runnerMove', building: 7 })
+    // 逃亡者: 6 に隠れて 7 へ。Round 2 にヘリコプター0（交差点0）がビル6を捜索
+    let s = playRounds(placeAll([0, 3, 15]), [6, 7], [0, 3, 24])
     s = applyAction(s, { type: 'policeSearch', helicopter: 0, building: 6 })
     expect(s.traces).toEqual([{ round: 1, building: 6, found: true }])
-    expect(s.searchLog.at(-1)?.outcome).toBe('trace')
+    expect(s.searchLog.at(-1)).toMatchObject({ round: 2, outcome: 'trace' })
   })
 
   it('reports a trace again when searching an already found trace', () => {
-    let s = playRounds(placeAll([0, 3, 15]), [6], IDLE_SEARCHES)
-    s = applyAction(s, { type: 'runnerMove', building: 7 })
+    let s = playRounds(placeAll([0, 3, 15]), [6, 7], [0, 3, 24])
     s = applyAction(s, { type: 'policeSearch', helicopter: 0, building: 6 })
     s = applyAction(s, { type: 'policeMove', helicopter: 1, intersection: 2 })
     s = applyAction(s, { type: 'policeSearch', helicopter: 2, building: 24 })
@@ -269,16 +299,14 @@ describe('search', () => {
     expect(s.traces[0].found).toBe(true)
   })
 
-  it('finds no trace where the runner is now (the trace is left only on leaving)', () => {
-    let s = playRounds(placeAll([0, 3, 15]), [1], IDLE_SEARCHES)
-    s = applyAction(s, { type: 'runnerMove', building: 6 })
+  it('finds the runner (not a trace) in the building it is in now', () => {
+    let s = playRounds(placeAll([0, 3, 15]), [1, 6], [0, 3, 24])
     s = applyAction(s, { type: 'policeSearch', helicopter: 0, building: 6 })
     expect(s.searchLog.at(-1)?.outcome).toBe('runner')
   })
 
   it('arrests the runner and ends the game immediately', () => {
-    let s = playRounds(placeAll([0, 3, 15]), [1], IDLE_SEARCHES)
-    s = applyAction(s, { type: 'runnerMove', building: 6 })
+    let s = playRounds(placeAll([0, 3, 15]), [1, 6], [0, 3, 24])
     s = applyAction(s, { type: 'policeSearch', helicopter: 0, building: 6 })
     expect(s.phase).toBe('ended')
     expect(s.winner).toBe('police')
@@ -295,25 +323,25 @@ describe('game end', () => {
   // スタート + 11回の移動
   const ESCAPE_PATH = [0, 1, 2, 7, 6, 5, 10, 11, 12, 13, 14, 9]
 
-  it('lets the runner escape after the round 11 police phase', () => {
-    const beforeLastPolice = playRounds(hidePhase(), ESCAPE_PATH.slice(0, 11), IDLE_SEARCHES)
-    expect(beforeLastPolice.round).toBe(11)
-    const lastMove = applyAction(beforeLastPolice, { type: 'runnerMove', building: 9 })
-    expect(lastMove.phase).toBe('police') // 11回目の移動の後も警察の手番がある
-
-    const s = searchAll(lastMove, IDLE_SEARCHES)
-    expect(s.phase).toBe('ended')
-    expect(s.winner).toBe('runner')
-    expect(s.endReason).toBe('escaped')
+  it('gives police a final search after the 11th move', () => {
+    const s = playRounds(hidePhase(), ESCAPE_PATH, IDLE_SEARCHES)
     expect(s.traces).toHaveLength(11) // 痕跡 11 個をすべて使う
-    expect(s.traces[0]).toMatchObject({ round: 1, building: 0 })
-    expect(s.traces[5]).toMatchObject({ round: 6, building: 5 })
+    expect(s.phase).toBe('police')
+    expect(s.round).toBe(12) // 最後の捜索
     expect(s.runnerPosition).toBe(9)
   })
 
-  it('can still arrest the runner during the round 11 police phase', () => {
-    let s = playRounds(hidePhase(), ESCAPE_PATH.slice(0, 11), IDLE_SEARCHES)
-    s = applyAction(s, { type: 'runnerMove', building: 9 })
+  it('lets the runner escape when the final search fails', () => {
+    const s = searchAll(playRounds(hidePhase(), ESCAPE_PATH, IDLE_SEARCHES), IDLE_SEARCHES)
+    expect(s.phase).toBe('ended')
+    expect(s.winner).toBe('runner')
+    expect(s.endReason).toBe('escaped')
+    expect(s.traces[0]).toMatchObject({ round: 1, building: 0 })
+    expect(s.traces[5]).toMatchObject({ round: 6, building: 5 })
+  })
+
+  it('can still arrest the runner in the final search', () => {
+    let s = playRounds(hidePhase(), ESCAPE_PATH, IDLE_SEARCHES)
     // ヘリコプター2 は交差点3（ビル 3, 4, 8, 9）にいる
     s = applyAction(s, { type: 'policeSearch', helicopter: 2, building: 9 })
     expect(s.winner).toBe('police')
@@ -322,7 +350,9 @@ describe('game end', () => {
 
   it('declares the runner surrounded when no move is possible', () => {
     // 5 に隠れて 6 → 1 → 0 と動くと、ビル0の隣（1, 5）はどちらも痕跡あり
-    const s = playRounds(hidePhase(), [5, 6, 1, 0], IDLE_SEARCHES)
+    let s = playRounds(hidePhase(), [5, 6, 1, 0], IDLE_SEARCHES)
+    expect(s.phase).toBe('police') // Round 4 の警察はまだ行動できる
+    s = searchAll(s, IDLE_SEARCHES)
     expect(s.phase).toBe('ended')
     expect(s.winner).toBe('police')
     expect(s.endReason).toBe('surrounded')
@@ -332,7 +362,7 @@ describe('game end', () => {
 
 describe('immutability', () => {
   it('never mutates the given state', () => {
-    const s0 = hideAt(hidePhase(), 3)
+    const s0 = searchAll(hideAt(hidePhase(), 3), IDLE_SEARCHES)
     const snapshot = structuredClone(s0)
     const s1 = applyAction(s0, { type: 'runnerMove', building: 8 })
     applyAction(s1, { type: 'policeMove', helicopter: 0, intersection: 11 })

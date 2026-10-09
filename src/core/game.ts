@@ -4,7 +4,7 @@ import {
   BUILDING_NEIGHBORS,
   BUILDINGS_AROUND_INTERSECTION,
   INTERSECTION_NEIGHBORS,
-  MAX_ROUNDS,
+  FINAL_SEARCH_ROUND,
   HELICOPTER_COUNT,
   type BuildingId,
   type IntersectionId,
@@ -149,8 +149,9 @@ function placePolice(
 }
 
 /**
- * hide: スタート地点に隠れる（痕跡は使わない）。続けて Round 1 の逃亡者フェーズへ
- * runner: 隣のビルへ移動し、元いたビルにそのラウンドの痕跡を残す
+ * hide: スタート地点に隠れる（痕跡は使わない）。続けて Round 1 の警察フェーズへ
+ * runner: 隣のビルへ移動し、元いたビルにそのラウンドの痕跡を残す。次のラウンドの警察フェーズへ
+ *         （Round 11 の移動の後は、警察の最後の捜索）
  */
 function runnerMove(state: GameState, building: BuildingId): GameState {
   if (state.phase !== 'hide' && state.phase !== 'runner') {
@@ -160,12 +161,19 @@ function runnerMove(state: GameState, building: BuildingId): GameState {
     throw new IllegalActionError(`Runner cannot move to building ${building}`)
   }
   if (state.phase === 'hide') {
-    return { ...state, phase: 'runner', round: 1, runnerPosition: building }
+    return {
+      ...state,
+      phase: 'police',
+      round: 1,
+      runnerPosition: building,
+      actedHelicopters: state.actedHelicopters.map(() => false),
+    }
   }
   const from = state.runnerPosition as BuildingId
   return {
     ...state,
     phase: 'police',
+    round: state.round + 1,
     runnerPosition: building,
     traces: [...state.traces, { round: state.round, building: from, found: false }],
     actedHelicopters: state.actedHelicopters.map(() => false),
@@ -232,20 +240,17 @@ function finishHelicopterAction(state: GameState, helicopter: HelicopterIndex): 
   const actedHelicopters = state.actedHelicopters.map((a, i) => (i === helicopter ? true : a))
   if (!actedHelicopters.every(Boolean)) return { ...state, actedHelicopters }
 
-  if (state.round >= MAX_ROUNDS) {
+  // 最後の捜索で見つからなければ逃亡者の勝ち
+  if (state.round >= FINAL_SEARCH_ROUND) {
     return { ...state, actedHelicopters, phase: 'ended', winner: 'runner', endReason: 'escaped' }
   }
 
-  const nextRound: GameState = {
-    ...state,
-    actedHelicopters: actedHelicopters.map(() => false),
-    phase: 'runner',
-    round: state.round + 1,
+  // 同じラウンドの逃亡者フェーズへ。動けるビルがなければ包囲
+  const runnerTurn: GameState = { ...state, actedHelicopters, phase: 'runner' }
+  if (runnerMoveTargets(runnerTurn).length === 0) {
+    return { ...runnerTurn, phase: 'ended', winner: 'police', endReason: 'surrounded' }
   }
-  if (runnerMoveTargets(nextRound).length === 0) {
-    return { ...nextRound, phase: 'ended', winner: 'police', endReason: 'surrounded' }
-  }
-  return nextRound
+  return runnerTurn
 }
 
 function activeHelicopterPosition(

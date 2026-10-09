@@ -1,6 +1,11 @@
 import { useTranslation } from 'react-i18next'
 import type { ReactNode } from 'react'
-import { traceColorForRound, type GameState, type SearchRecord } from '../../core'
+import {
+  FINAL_SEARCH_ROUND,
+  traceColorForRound,
+  type GameState,
+  type SearchRecord,
+} from '../../core'
 import {
   isHumanTurn,
   nextHelicopterToPlace,
@@ -120,7 +125,11 @@ function instructionText(
     case 'runner':
       return t('instruction.runnerMove')
     case 'police':
-      if (selectedHelicopter === null) return t('instruction.policeSelectHelicopter')
+      if (selectedHelicopter === null) {
+        return game.round >= FINAL_SEARCH_ROUND
+          ? t('instruction.policeFinalSearch')
+          : t('instruction.policeSelectHelicopter')
+      }
       if (mode === 'move') return t('instruction.policeMove')
       if (mode === 'search') return t('instruction.policeSearch')
       return t('instruction.policeChooseAction', { number: selectedHelicopter + 1 })

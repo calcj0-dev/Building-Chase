@@ -44,11 +44,12 @@ describe('getView', () => {
     // ヘリコプター0: 交差点0（ビル 0, 1, 5, 6）/ ヘリコプター1: 交差点6（ビル 7, 8, 12, 13）/ ヘリコプター2: 交差点12
     // Round 1〜6 は逃亡者が通らないビル（6, 8, 20）を捜索して待機
     let s = playRounds(placeAll([0, 6, 12]), [5, 0, 1, 2, 7, 12, 11], [6, 8, 20])
-    s = applyAction(s, { type: 'runnerMove', building: 10 })
+    // Round 7 の警察
     s = applyAction(s, { type: 'policeSearch', helicopter: 0, building: 5 }) // 黄（1番目）
     s = applyAction(s, { type: 'policeSearch', helicopter: 1, building: 12 }) // 赤（6番目）
     s = applyAction(s, { type: 'policeSearch', helicopter: 2, building: 20 })
-    s = applyAction(s, { type: 'runnerMove', building: 15 })
+    s = applyAction(s, { type: 'runnerMove', building: 10 })
+    // Round 8 の警察
     s = applyAction(s, { type: 'policeSearch', helicopter: 0, building: 0 }) // 青（2番目）
 
     const v = getView(s, 'police')
@@ -61,9 +62,8 @@ describe('getView', () => {
   })
 
   it('reveals everything to police once the game has ended', () => {
-    // 7 に隠れて 6 → 1。ヘリコプター0（交差点0）が 1 を捜索して逮捕
-    let s = playRounds(placeAll([0, 3, 15]), [7, 6], [0, 3, 24])
-    s = applyAction(s, { type: 'runnerMove', building: 1 })
+    // 7 に隠れて 6 → 1。Round 3 にヘリコプター0（交差点0）が 1 を捜索して逮捕
+    let s = playRounds(placeAll([0, 3, 15]), [7, 6, 1], [0, 3, 24])
     s = applyAction(s, { type: 'policeSearch', helicopter: 0, building: 1 })
     const v = getView(s, 'police')
     expect(v.phase).toBe('ended')

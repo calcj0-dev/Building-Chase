@@ -33,7 +33,7 @@ export interface SearchRecord {
 
 export interface GameState {
   phase: Phase
-  /** 現在のラウンド（1〜11）。ゲーム開始前（setup / hide）は 0 */
+  /** 現在のラウンド（1〜11、12 は最後の捜索）。ゲーム開始前（setup / hide）は 0 */
   round: number
   /** ヘリコプターの位置。配置前は null */
   helicopters: (IntersectionId | null)[]

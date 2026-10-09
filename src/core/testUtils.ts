@@ -41,9 +41,9 @@ export function hideAt(state: GameState, building: BuildingId): GameState {
 }
 
 /**
- * 逃亡者が path の位置を順にたどる。毎ラウンド警察は idleSearches を捜索する。
+ * 逃亡者が path の位置を順にたどる。各ラウンドは 警察 → 逃亡者 の順で、警察は idleSearches を捜索する。
  * スタート地点に隠れる前の状態から始めた場合、path の先頭はスタート地点。
- * 決着した時点で止まる。
+ * 最後の移動の後は、次のラウンドの警察フェーズ（警察が行動する前）で止まる。決着した時点でも止まる。
  */
 export function playRounds(
   state: GameState,
@@ -57,8 +57,9 @@ export function playRounds(
       s = hideAt(s, building)
       continue
     }
+    if (s.phase === 'police') s = searchAll(s, idleSearches)
+    if (s.phase === 'ended') break
     s = applyAction(s, { type: 'runnerMove', building })
-    s = searchAll(s, idleSearches)
   }
   return s
 }

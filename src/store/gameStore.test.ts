@@ -32,12 +32,11 @@ const PLACE_ALL: StoreEvent[] = [
   { type: 'tapIntersection', intersection: 10 },
 ]
 
-/** ヘリコプター配置 → 端末を逃亡者へ → 24 に隠れる → 23 へ移動（警察の番になる） */
+/** ヘリコプター配置 → 端末を逃亡者へ → 24 に隠れる（Round 1 の警察の番になる） */
 const TO_POLICE_TURN: StoreEvent[] = [
   ...PLACE_ALL,
   { type: 'dismissHandoff' },
   { type: 'tapBuilding', building: 24 },
-  { type: 'tapBuilding', building: 23 },
 ]
 
 describe('setup', () => {
@@ -70,12 +69,15 @@ describe('setup', () => {
 })
 
 describe('runner turn', () => {
-  it('hides at the start point and moves right away without a handoff', () => {
+  it('hides at the start point, then police act before the first move', () => {
     let s = run([...PLACE_ALL, { type: 'dismissHandoff' }, { type: 'tapBuilding', building: 24 }])
     expect(s.game.runnerPosition).toBe(24)
-    expect(s.game.phase).toBe('runner')
-    expect(s.game.traces).toEqual([])
-    expect(s.handoffTo).toBeNull() // 続けて逃亡者が移動する
+    expect(s.game.phase).toBe('police')
+    expect(s.game.traces).toEqual([]) // スタート地点では痕跡を使わない
+    expect(s.handoffTo).toBe('police')
+    s = run([{ type: 'dismissHandoff' }, ...searchAllEvents([0, 6, 12])], s)
+    expect(s.handoffTo).toBe('runner')
+    s = run([{ type: 'dismissHandoff' }], s)
     expect([...highlightedBuildings(s)].sort((a, b) => a - b)).toEqual([19, 23])
     s = run([{ type: 'tapBuilding', building: 23 }], s)
     expect(s.game.phase).toBe('police')
@@ -86,7 +88,7 @@ describe('runner turn', () => {
   it('ignores taps on buildings that are not highlighted', () => {
     let s = run([...TO_POLICE_TURN, { type: 'dismissHandoff' }, ...searchAllEvents([0, 6, 12])])
     s = run([{ type: 'dismissHandoff' }, { type: 'tapBuilding', building: 0 }], s) // 隣接していない
-    expect(s.game.runnerPosition).toBe(23)
+    expect(s.game.runnerPosition).toBe(24)
     expect(s.game.phase).toBe('runner')
   })
 })
@@ -171,9 +173,10 @@ describe('police turn', () => {
     expect(s.lastSearch).toBeNull()
   })
 
-  it('hands the device back to the runner when the round ends', () => {
+  it('hands the device to the runner after all helicopters act', () => {
     const s = run(searchAllEvents([0, 6, 12]), policeTurn())
-    expect(s.game.round).toBe(2)
+    expect(s.game.phase).toBe('runner')
+    expect(s.game.round).toBe(1)
     expect(s.handoffTo).toBe('runner')
   })
 
@@ -181,7 +184,6 @@ describe('police turn', () => {
     let s = run([
       ...PLACE_ALL,
       { type: 'dismissHandoff' },
-      { type: 'tapBuilding', building: 1 },
       { type: 'tapBuilding', building: 6 },
       { type: 'dismissHandoff' },
       { type: 'tapHelicopter', helicopter: 0 },
@@ -221,10 +223,8 @@ describe('VS CPU', () => {
     let s = run([{ type: 'startGame', side: 'police' }, ...PLACE_ALL])
     expect(viewRole(s)).toBe('police')
     s = run([cpu(1)], s) // CPU 逃亡者がスタート地点に隠れる
-    expect(s.game.phase).toBe('runner')
-    expect(getView(s.game, viewRole(s)).runnerPosition).toBeNull()
-    s = run([cpu(2)], s) // CPU 逃亡者が移動
     expect(s.game.phase).toBe('police')
+    expect(isHumanTurn(s)).toBe(true)
     expect(getView(s.game, viewRole(s)).runnerPosition).toBeNull()
   })
 

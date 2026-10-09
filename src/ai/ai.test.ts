@@ -7,7 +7,7 @@ import {
   getView,
   type GameState,
 } from '../core'
-import { hideAt, placeAll, playRounds } from '../core/testUtils'
+import { hideAt, placeAll, playRounds, searchAll } from '../core/testUtils'
 import { chooseCpuAction, choosePoliceAction, chooseRunnerAction, inferRunner, seededRng } from '.'
 import { canKeepMoving } from './runner'
 
@@ -45,11 +45,11 @@ describe('inferRunner', () => {
   })
 
   it('rules out buildings where a search found nothing', () => {
-    // 1回移動した後（位置 p0, p1）。Round 1 の捜索でビル12は空 → p0 も p1 も 12 ではない
+    // 1回移動した後（位置 p0, p1）。Round 2 の捜索でビル12は空 → p0 も p1 も 12 ではない
     const b = inferRunner({
       traceCount: 1,
       traces: [],
-      searchLog: [{ round: 1, helicopter: 0, building: 12, outcome: 'nothing' }],
+      searchLog: [{ round: 2, helicopter: 0, building: 12, outcome: 'nothing' }],
     })
     expect(b.pathCount).toBe(80 - 8) // 2マスの移動 80 通りから 12 を通る 8 通りを除く
     expect(b.here[12]).toBe(0)
@@ -57,10 +57,11 @@ describe('inferRunner', () => {
   })
 
   it('allows a building again after the round in which it was searched', () => {
+    // Round 2 の捜索（1回移動した時点）でビル12は空
     const b = inferRunner({
       traceCount: 2,
       traces: [],
-      searchLog: [{ round: 1, helicopter: 0, building: 12, outcome: 'nothing' }],
+      searchLog: [{ round: 2, helicopter: 0, building: 12, outcome: 'nothing' }],
     })
     expect(b.here[12]).toBeGreaterThan(0) // 2回目の移動で入った可能性はある
     expect(b.visited[12]).toBe(0) // スタート地点や1回目の移動先だった可能性はない
@@ -70,7 +71,7 @@ describe('inferRunner', () => {
     const b = inferRunner({
       traceCount: 1,
       traces: [{ building: 12, color: 'yellow', round: 1, found: true }],
-      searchLog: [{ round: 1, helicopter: 0, building: 12, outcome: 'trace' }],
+      searchLog: [{ round: 2, helicopter: 0, building: 12, outcome: 'trace' }],
     })
     expect(b.pathCount).toBe(4)
     expect([7, 11, 13, 17].every((x) => b.here[x] === 0.25)).toBe(true)
@@ -99,8 +100,8 @@ describe('police AI', () => {
 
   it('decides the same way whatever the hidden runner position is', () => {
     // 警察から見て区別できない2つの状態（逃亡者のスタート地点だけが違う）
-    const a = applyAction(hideAt(placeAll([5, 6, 9]), 0), { type: 'runnerMove', building: 1 })
-    const b = applyAction(hideAt(placeAll([5, 6, 9]), 24), { type: 'runnerMove', building: 23 })
+    const a = hideAt(placeAll([5, 6, 9]), 0)
+    const b = hideAt(placeAll([5, 6, 9]), 24)
     expect(getView(a, 'police')).toEqual(getView(b, 'police'))
     for (let seed = 1; seed <= 10; seed++) {
       expect(choosePoliceAction(getView(a, 'police'), seededRng(seed))).toEqual(
@@ -110,29 +111,30 @@ describe('police AI', () => {
   })
 
   it('refuses to work from the runner view', () => {
-    const s = applyAction(hideAt(placeAll([5, 6, 9]), 0), { type: 'runnerMove', building: 1 })
+    const s = hideAt(placeAll([5, 6, 9]), 0)
     expect(() => choosePoliceAction(getView(s, 'runner'), seededRng(1))).toThrow()
   })
 
   it('searches where the runner can be once the start point is known', () => {
     // ヘリコプター: 交差点5（ビル 6, 7, 11, 12）/ 6（7, 8, 12, 13）/ 10（12, 13, 17, 18）
-    // Round 1: 逃亡者は 12 に隠れて 7 へ（12 に黄の痕跡）。6・8・18 は空振り
+    // 逃亡者は 12 に隠れる。Round 1 の警察は 6・8・18 を捜索して空振り
     let s = hideAt(placeAll([5, 6, 10]), 12)
-    s = applyAction(s, { type: 'runnerMove', building: 7 })
     s = applyAction(s, { type: 'policeSearch', helicopter: 0, building: 6 })
     s = applyAction(s, { type: 'policeSearch', helicopter: 1, building: 8 })
     s = applyAction(s, { type: 'policeSearch', helicopter: 2, building: 18 })
-    // Round 2: 逃亡者は 7 → 2。黄の痕跡（ビル12）を発見し、17 は空振り
-    s = applyAction(s, { type: 'runnerMove', building: 2 })
+    // Round 1 の逃亡者: 12 → 7（12 に黄の痕跡）
+    s = applyAction(s, { type: 'runnerMove', building: 7 })
+    // Round 2 の警察: 黄の痕跡（ビル12）を発見し、17 は空振り
     s = applyAction(s, { type: 'policeSearch', helicopter: 1, building: 12 })
     s = applyAction(s, { type: 'policeSearch', helicopter: 2, building: 17 })
-    // 警察の推理: スタート地点は 12、1回目の移動先は 7 / 11 / 13、今いるのはその隣
+    // 警察の推理: スタート地点は 12、今いるのはその隣（7 / 11 / 13）のどれか
     const belief = inferRunner(getView(s, 'police'))
-    expect(belief.pathCount).toBe(9)
-    // 残るヘリコプター0（ビル 6, 7, 11, 12 に接する）は、逃亡者がいる可能性のある 6 を捜索するはず
+    expect(belief.pathCount).toBe(3)
+    // 残るヘリコプター0（ビル 6, 7, 11, 12 に接する）は 7 か 11 を捜索するはず
     for (let seed = 1; seed <= 10; seed++) {
       const action = choosePoliceAction(getView(s, 'police'), seededRng(seed))
-      expect(action).toEqual({ type: 'policeSearch', helicopter: 0, building: 6 })
+      expect(action.type).toBe('policeSearch')
+      expect([7, 11]).toContain(action.type === 'policeSearch' ? action.building : -1)
     }
   })
 })
@@ -150,7 +152,7 @@ describe('runner AI', () => {
 
   it('does not walk into a dead end when another way exists', () => {
     // 5 に隠れて 6 → 1 と動いた後、0 に入ると包囲される。2 なら逃げ続けられる
-    const s = playRounds(placeAll([15, 12, 3]), [5, 6, 1], IDLE_SEARCHES)
+    const s = searchAll(playRounds(placeAll([15, 12, 3]), [5, 6, 1], IDLE_SEARCHES), IDLE_SEARCHES)
     for (let seed = 1; seed <= 20; seed++) {
       expect(chooseRunnerAction(s, seededRng(seed))).toEqual({ type: 'runnerMove', building: 2 })
     }

@@ -36,7 +36,7 @@
     "title": "How to Play",
     "basics": {
       "heading": "Basics",
-      "body": "Before the game starts, the runner hides in any building. Each round, the runner moves first, then the police. The runner wins by staying hidden for 11 rounds; the police win by finding the runner with 3 helicopters."
+      "body": "Before the game starts, the police place their helicopters and the runner hides in any building. Each round, the police act first, then the runner moves. After 11 rounds the police get one final search; the runner wins by surviving it, the police win by finding the runner before then."
     },
     "runner": {
       "heading": "The Runner",
@@ -44,7 +44,7 @@
     },
     "police": {
       "heading": "The Police",
-      "body": "Pick a helicopter, then either Move (to an adjacent intersection) or Search (one of the 4 surrounding buildings). The round ends when all 3 have acted. You place the helicopters on any intersections at the start."
+      "body": "Pick a helicopter, then either Move (to an adjacent intersection) or Search (one of the 4 surrounding buildings). When all 3 have acted, it is the runner's turn. You can search right after the runner hides."
     },
     "traces": {
       "heading": "Traces and Deduction",
@@ -68,7 +68,8 @@
     "setupRound": "Setup",
     "turn": "{{role}}'s turn",
     "yourTurn": "Your turn",
-    "cpuThinking": "CPU thinking..."
+    "cpuThinking": "CPU thinking...",
+    "finalSearch": "Final search"
   },
   "phase": {
     "setup": "SETUP",
@@ -87,7 +88,8 @@
     "policeSelectHelicopter": "Tap a helicopter to act",
     "policeChooseAction": "Choose an action for helicopter {{number}}",
     "policeMove": "Tap an intersection to move to",
-    "policeSearch": "Tap a building to search"
+    "policeSearch": "Tap a building to search",
+    "policeFinalSearch": "Final search! Tap a helicopter to act"
   },
   "action": {
     "move": "Move",
@@ -111,7 +113,7 @@
     "reason": {
       "arrested": "Arrested — the police found the runner",
       "surrounded": "Surrounded — the runner had nowhere to go",
-      "escaped": "Escaped — the runner survived 11 rounds"
+      "escaped": "Escaped — the runner survived the final search"
     },
     "routeTitle": "The runner's route",
     "moves": "Moves",

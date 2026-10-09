@@ -5,7 +5,10 @@ export const BUILDING_GRID_SIZE = 5
 export const INTERSECTION_GRID_SIZE = BUILDING_GRID_SIZE - 1
 export const BUILDING_COUNT = BUILDING_GRID_SIZE * BUILDING_GRID_SIZE
 export const INTERSECTION_COUNT = INTERSECTION_GRID_SIZE * INTERSECTION_GRID_SIZE
+/** ラウンド数（各ラウンドは 警察 → 逃亡者）。その後に警察の最後の捜索がある */
 export const MAX_ROUNDS = 11
+/** 最後の捜索（逃亡者の 11 回目の移動の後、警察だけが行動する） */
+export const FINAL_SEARCH_ROUND = MAX_ROUNDS + 1
 export const HELICOPTER_COUNT = 3
 
 export type BuildingId = number

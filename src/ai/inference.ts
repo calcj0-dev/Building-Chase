@@ -22,8 +22,9 @@ const NO_LIMIT = -1
  * 警察の知識と矛盾しない逃亡者の移動ルート（自己回避のウォーク）をすべて数え上げる。
  * ルートは位置 p0（スタート地点）〜 pn（今いるビル）。n は移動した回数（= 置かれた痕跡の数）。
  * Round k の移動で、移動前のビル p(k-1) に k 番目の痕跡が残る。
- * - 「何もない」捜索（ラウンド r, ビル b）: p0〜pr のどれも b ではない
- * - 発見した痕跡: 黄（1番目）なら p0、赤（6番目）なら p5、青なら発見より前のそれ以外の位置
+ * 各ラウンドは 警察 → 逃亡者 の順なので、Round r の捜索は逃亡者が r-1 回移動した時点で行われる。
+ * - 「何もない」捜索（ラウンド r, ビル b）: p0〜p(r-1) のどれも b ではない
+ * - 発見した痕跡: 黄（1番目）なら p0、赤（6番目）なら p5、青なら発見時点より前のそれ以外の位置
  */
 export function inferRunner(knowledge: PoliceKnowledge): RunnerBelief {
   const n = knowledge.traceCount
@@ -34,7 +35,7 @@ export function inferRunner(knowledge: PoliceKnowledge): RunnerBelief {
   const forbiddenThrough = new Array<number>(BUILDING_COUNT).fill(NO_LIMIT)
   for (const s of knowledge.searchLog) {
     if (s.outcome === 'nothing') {
-      forbiddenThrough[s.building] = Math.max(forbiddenThrough[s.building], s.round)
+      forbiddenThrough[s.building] = Math.max(forbiddenThrough[s.building], s.round - 1)
     }
   }
 
@@ -48,8 +49,8 @@ export function inferRunner(knowledge: PoliceKnowledge): RunnerBelief {
       const firstFound = knowledge.searchLog.find(
         (s) => s.building === t.building && s.outcome === 'trace',
       )
-      // Round r の捜索で見つかった痕跡は p0〜p(r-1) のどこかに置かれたもの
-      blueBefore.set(t.building, firstFound?.round ?? n)
+      // Round r の捜索で見つかった痕跡は、それまでの移動で残された p0〜p(r-2) のどこか
+      blueBefore.set(t.building, firstFound ? firstFound.round - 1 : n)
     } else {
       const step = t.color === 'yellow' ? 0 : 5
       fixedStep.set(step, t.building)
