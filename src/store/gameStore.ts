@@ -18,8 +18,6 @@ import {
   type SearchRecord,
 } from '../core'
 
-export type PoliceMode = 'move' | 'search'
-
 /** 人が操作する陣営。both は1台の端末で2人が交代で遊ぶ（ホットシート） */
 export type HumanSide = Role | 'both'
 
@@ -31,8 +29,6 @@ export interface GameStoreState {
   game: GameState
   /** 警察フェーズで選択中のヘリコプター */
   selectedHelicopter: HelicopterIndex | null
-  /** 選択中のヘリコプターの行動（未選択は null） */
-  mode: PoliceMode | null
   /** 直前の捜索結果（次の行動まで表示する） */
   lastSearch: SearchRecord | null
   /** ホットシートで端末を渡す相手。null の間は盤面を表示する */
@@ -47,7 +43,6 @@ export interface GameStoreActions {
   tapBuilding(building: BuildingId): void
   tapIntersection(intersection: IntersectionId): void
   tapHelicopter(helicopter: HelicopterIndex): void
-  chooseMode(mode: PoliceMode): void
   cancelSelection(): void
   dismissHandoff(): void
 }
@@ -63,7 +58,6 @@ export function initialStoreState(
     cpuLevel,
     game: createGame(),
     selectedHelicopter: null,
-    mode: null,
     lastSearch: null,
     handoffTo: null,
   }
@@ -97,7 +91,8 @@ export function nextHelicopterToPlace(game: GameState): HelicopterIndex | null {
 export function highlightedBuildings(s: GameStoreState): BuildingId[] {
   if (s.handoffTo !== null || !isHumanTurn(s)) return []
   if (s.game.phase === 'hide' || s.game.phase === 'runner') return runnerMoveTargets(s.game)
-  if (s.game.phase === 'police' && s.selectedHelicopter !== null && s.mode === 'search') {
+  // ヘリコプターを選ぶと、捜索できるビルと移動できる交差点を同時に光らせる
+  if (s.game.phase === 'police' && s.selectedHelicopter !== null) {
     return policeSearchTargets(s.game, s.selectedHelicopter)
   }
   return []
@@ -108,7 +103,7 @@ export function highlightedIntersections(s: GameStoreState): IntersectionId[] {
   if (s.handoffTo !== null || !isHumanTurn(s)) return []
   const helicopter = nextHelicopterToPlace(s.game)
   if (helicopter !== null) return placementTargets(s.game, helicopter)
-  if (s.game.phase === 'police' && s.selectedHelicopter !== null && s.mode === 'move') {
+  if (s.game.phase === 'police' && s.selectedHelicopter !== null) {
     return policeMoveTargets(s.game, s.selectedHelicopter)
   }
   return []
@@ -139,17 +134,12 @@ export function reduceStore(s: GameStoreState, event: StoreEvent): GameStoreStat
       return { ...s, handoffTo: null }
 
     case 'cancelSelection':
-      return s.mode !== null ? { ...s, mode: null } : { ...s, selectedHelicopter: null }
+      return { ...s, selectedHelicopter: null }
 
     case 'tapHelicopter':
       if (!selectableHelicopters(s).includes(event.helicopter)) return s
-      if (s.selectedHelicopter === event.helicopter)
-        return { ...s, selectedHelicopter: null, mode: null }
-      return { ...s, selectedHelicopter: event.helicopter, mode: null }
-
-    case 'chooseMode':
-      if (s.selectedHelicopter === null || s.game.phase !== 'police') return s
-      return { ...s, mode: event.mode }
+      if (s.selectedHelicopter === event.helicopter) return { ...s, selectedHelicopter: null }
+      return { ...s, selectedHelicopter: event.helicopter }
 
     case 'tapIntersection': {
       if (!highlightedIntersections(s).includes(event.intersection)) return s
@@ -188,7 +178,6 @@ export type StoreEvent =
   | { type: 'dismissHandoff' }
   | { type: 'cancelSelection' }
   | { type: 'tapHelicopter'; helicopter: HelicopterIndex }
-  | { type: 'chooseMode'; mode: PoliceMode }
   | { type: 'tapIntersection'; intersection: IntersectionId }
   | { type: 'tapBuilding'; building: BuildingId }
 
@@ -204,7 +193,6 @@ function dispatch(s: GameStoreState, action: Action): GameStoreState {
     cpuLevel: s.cpuLevel,
     game,
     selectedHelicopter: null,
-    mode: null,
     lastSearch: action.type === 'policeSearch' ? (game.searchLog.at(-1) ?? null) : null,
     handoffTo: roleChanged ? after : null,
   }
@@ -221,7 +209,6 @@ export const useGameStore = create<GameStore>()((set) => {
     tapBuilding: (building) => send({ type: 'tapBuilding', building }),
     tapIntersection: (intersection) => send({ type: 'tapIntersection', intersection }),
     tapHelicopter: (helicopter) => send({ type: 'tapHelicopter', helicopter }),
-    chooseMode: (mode) => send({ type: 'chooseMode', mode }),
     cancelSelection: () => send({ type: 'cancelSelection' }),
     dismissHandoff: () => send({ type: 'dismissHandoff' }),
   }

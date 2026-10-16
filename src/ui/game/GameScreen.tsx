@@ -236,7 +236,6 @@ export function GameScreen() {
           highlightedIntersections={busy ? [] : highlightedIntersections(store)}
           selectableHelicopters={busy ? [] : selectableHelicopters(store)}
           selectedHelicopter={store.selectedHelicopter}
-          policeMode={store.mode}
           onTapBuilding={store.tapBuilding}
           onTapIntersection={store.tapIntersection}
           onTapHelicopter={onTapHelicopter}

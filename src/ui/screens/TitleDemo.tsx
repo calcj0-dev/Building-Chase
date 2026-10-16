@@ -92,7 +92,6 @@ export function TitleDemo() {
       highlightedIntersections={[]}
       selectableHelicopters={[]}
       selectedHelicopter={null}
-      policeMode={null}
       onTapBuilding={noop}
       onTapIntersection={noop}
       onTapHelicopter={noop}

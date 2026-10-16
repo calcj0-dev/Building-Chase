@@ -15,6 +15,7 @@ import {
   FOOTPRINT,
   HELI_LIFT,
   HELI_SCALE,
+  INSET,
   SLAB,
   TILT_HEIGHT,
   WORLD_SIZE,
@@ -40,12 +41,11 @@ interface BoardProps {
   highlightedBuildings: BuildingId[]
   highlightedIntersections: IntersectionId[]
   selectableHelicopters: HelicopterIndex[]
-  selectedHelicopter: HelicopterIndex | null
   /**
-   * 選択中の行動。ヘリコプターは空中に描くため北側のビルに重なる。
-   * 捜索するビルを選ぶ間はヘリコプターを半透明にしてタップを通し、移動先を選ぶ間は当たり判定を小さくする
+   * 選択中のヘリコプター。選んでいる間は、移動できる交差点（青）と捜索できるビル（黄）を同時に光らせる。
+   * ヘリコプターは空中に描くため北側のビルに重なるので、タップは「当たり判定の層」で受け取る（BoardHitLayer）
    */
-  policeMode: 'move' | 'search' | null
+  selectedHelicopter: HelicopterIndex | null
   onTapBuilding(building: BuildingId): void
   onTapIntersection(intersection: IntersectionId): void
   onTapHelicopter(helicopter: HelicopterIndex): void
@@ -74,7 +74,6 @@ export function Board({
   highlightedIntersections,
   selectableHelicopters,
   selectedHelicopter,
-  policeMode,
   onTapBuilding,
   onTapIntersection,
   onTapHelicopter,
@@ -82,6 +81,8 @@ export function Board({
   searchEffect = null,
 }: BoardProps) {
   const traceByBuilding = new Map(view.traces.map((t) => [t.building, t]))
+  // 警察がヘリコプターを選んで、行き先（移動 / 捜索）を選んでいる最中
+  const choosing = selectedHelicopter !== null
   const showRoute = view.phase === 'ended'
   // 答え合わせのルート: 痕跡（スタート地点から順）→ 最後にいたビル（痕跡はない）
   const route = showRoute
@@ -179,9 +180,21 @@ export function Board({
           <SearchResultMark key={searchEffect.key} mode={mode} effect={searchEffect} />
         ))}
 
+      {choosing && (
+        <ChoiceHitAreas
+          mode={mode}
+          highlightedBuildings={highlightedBuildings}
+          highlightedIntersections={highlightedIntersections}
+          onTapBuilding={onTapBuilding}
+          onTapIntersection={onTapIntersection}
+        />
+      )}
+
       {view.helicopters.map((at, i) => {
         if (at === null) return null
         const helicopter = i as HelicopterIndex
+        const selected = selectedHelicopter === helicopter
+        const selectable = selectableHelicopters.includes(helicopter)
         return (
           <Helicopter
             key={`h${helicopter}`}
@@ -189,9 +202,11 @@ export function Board({
             helicopter={helicopter}
             at={at}
             acted={view.phase === 'police' && view.actedHelicopters[helicopter]}
-            selected={selectedHelicopter === helicopter}
-            selectable={selectableHelicopters.includes(helicopter)}
-            hitArea={policeMode === 'search' ? 'none' : policeMode === 'move' ? 'compact' : 'wide'}
+            selected={selected}
+            // 選んでいる間: ほかのヘリコプターは描かれた部分だけで選び直せる。
+            // 選んだヘリコプターは半透明にして、下の光るビルを押せるようタップを通す
+            hit={!selectable ? 'none' : !choosing ? 'wide' : selected ? 'none' : 'painted'}
+            faded={choosing && selected}
             onTap={onTapHelicopter}
           />
         )
@@ -201,34 +216,43 @@ export function Board({
         <SearchScan key={`scan${searchEffect.key}`} mode={mode} effect={searchEffect} />
       )}
 
-      {/* 選べる交差点は最前面に表示し、ヘリコプターの下でもタップできるようにする */}
-      {ALL_INTERSECTIONS.filter((id) => highlightedIntersections.includes(id)).map((id) => {
-        const g = intersectionGround(mode, id)
-        return (
-          <g
-            key={`i${id}`}
-            data-intersection={id}
-            data-highlighted
-            onClick={() => onTapIntersection(id)}
-            className="cursor-pointer"
-          >
-            <g className="bc-glow">
-              <circle
-                cx={g.x}
-                cy={g.y}
-                r={17}
-                fill="#fde68a"
-                fillOpacity={0.4}
-                stroke="#fde68a"
-                strokeWidth={4}
-              />
-              <circle cx={g.x} cy={g.y} r={5} fill="#fde68a" />
+      {choosing ? (
+        <ChoiceMarkers
+          mode={mode}
+          from={view.helicopters[selectedHelicopter]}
+          highlightedBuildings={highlightedBuildings}
+          highlightedIntersections={highlightedIntersections}
+        />
+      ) : (
+        // 配置の候補の交差点は最前面に表示し、ヘリコプターの下でもタップできるようにする
+        ALL_INTERSECTIONS.filter((id) => highlightedIntersections.includes(id)).map((id) => {
+          const g = intersectionGround(mode, id)
+          return (
+            <g
+              key={`i${id}`}
+              data-intersection={id}
+              data-highlighted
+              onClick={() => onTapIntersection(id)}
+              className="cursor-pointer"
+            >
+              <g className="bc-glow">
+                <circle
+                  cx={g.x}
+                  cy={g.y}
+                  r={17}
+                  fill="#fde68a"
+                  fillOpacity={0.4}
+                  stroke="#fde68a"
+                  strokeWidth={4}
+                />
+                <circle cx={g.x} cy={g.y} r={5} fill="#fde68a" />
+              </g>
+              {/* タップしやすいよう当たり判定を広げる */}
+              <circle cx={g.x} cy={g.y} r={36} fill="transparent" />
             </g>
-            {/* タップしやすいよう当たり判定を広げる */}
-            <circle cx={g.x} cy={g.y} r={36} fill="transparent" />
-          </g>
-        )
-      })}
+          )
+        })
+      )}
     </svg>
   )
 }
@@ -549,6 +573,162 @@ function Villain({ x, y }: { x: number; y: number }) {
   )
 }
 
+/** ヘリコプターの広い当たり判定（イラストの座標。交差点から HELI_LIFT 上が原点） */
+const HELI_HIT = { cx: 6, cy: -6, rx: 44, ry: 34 }
+/** 移動先の交差点の当たり判定: 交差点から道路に沿って伸びる十字（腕の長さと太さの半分、ワールド座標） */
+const ROAD_ARM = CELL / 2
+const ROAD_HALF_WIDTH = INSET
+
+/**
+ * ヘリコプターを選んでいる間の当たり判定（見た目は持たない）。ヘリコプターのすぐ下に置き、
+ * 見た目で一番上に見えているものが反応するよう、絵と同じ順に重ねる（上にあるものが優先される）:
+ * 1. 移動先の交差点: 交差点と、そこから伸びる道路の十字（ビルに隠れていない道路の部分だけが反応する）
+ * 2. ビル（奥から手前の順）: 光っているビルは捜索、光っていないビルは何もしない（タップをふさぐ）
+ * その上のヘリコプターは、描かれた部分で選び直せる（選んでいるヘリコプターは反応しない）
+ */
+function ChoiceHitAreas({
+  mode,
+  highlightedBuildings,
+  highlightedIntersections,
+  onTapBuilding,
+  onTapIntersection,
+}: {
+  mode: ViewMode
+  highlightedBuildings: BuildingId[]
+  highlightedIntersections: IntersectionId[]
+  onTapBuilding(building: BuildingId): void
+  onTapIntersection(intersection: IntersectionId): void
+}) {
+  const ground = planeMatrix(mode, { x: 0, y: 0, z: 0 }, { x: 1, y: 0 }, { x: 0, y: 1 })
+  return (
+    <g>
+      <g transform={ground}>
+        {highlightedIntersections.map((id) => {
+          const w = intersectionWorld(id)
+          return (
+            <g
+              key={`ih${id}`}
+              data-intersection={id}
+              data-highlighted
+              onClick={() => onTapIntersection(id)}
+              className="cursor-pointer"
+              fill="transparent"
+            >
+              <rect
+                x={w.x - ROAD_ARM}
+                y={w.y - ROAD_HALF_WIDTH}
+                width={ROAD_ARM * 2}
+                height={ROAD_HALF_WIDTH * 2}
+              />
+              <rect
+                x={w.x - ROAD_HALF_WIDTH}
+                y={w.y - ROAD_ARM}
+                width={ROAD_HALF_WIDTH * 2}
+                height={ROAD_ARM * 2}
+              />
+            </g>
+          )
+        })}
+      </g>
+      {buildingsBackToFront(mode).map((id) =>
+        highlightedBuildings.includes(id) ? (
+          <BuildingHitArea key={`bh${id}`} mode={mode} id={id} onTap={onTapBuilding} />
+        ) : (
+          <BuildingHitArea key={`bb${id}`} mode={mode} id={id} />
+        ),
+      )}
+    </g>
+  )
+}
+
+/** ヘリコプターを選んでいる間の目印（タップは通す）: 捜索先の虫めがね、移動先の青い丸と矢印 */
+function ChoiceMarkers({
+  mode,
+  from,
+  highlightedBuildings,
+  highlightedIntersections,
+}: {
+  mode: ViewMode
+  /** 選んだヘリコプターのいる交差点（矢印の向きの基準） */
+  from: IntersectionId | null
+  highlightedBuildings: BuildingId[]
+  highlightedIntersections: IntersectionId[]
+}) {
+  return (
+    <g pointerEvents="none">
+      {highlightedBuildings.map((id) => {
+        const p = roofCenter(mode, id)
+        return (
+          <g key={`sm${id}`} transform={`translate(${p.x}, ${p.y})`}>
+            <circle r={13} fill="#451a03" fillOpacity={0.75} stroke="#fde68a" strokeWidth={2.5} />
+            <circle cx={-2} cy={-2} r={5} fill="none" stroke="#fde68a" strokeWidth={2.5} />
+            <path d="M 2 2 L 7 7" stroke="#fde68a" strokeWidth={3} strokeLinecap="round" />
+          </g>
+        )
+      })}
+      {highlightedIntersections.map((id) => {
+        const g = intersectionGround(mode, id)
+        const o = from === null ? g : intersectionGround(mode, from)
+        // 選んだヘリコプターから離れる向きの矢印
+        const angle = (Math.atan2(g.y - o.y, g.x - o.x) * 180) / Math.PI
+        return (
+          <g key={`mm${id}`} className="bc-glow" transform={`translate(${g.x}, ${g.y})`}>
+            <circle r={17} fill="#38bdf8" fillOpacity={0.35} stroke="#7dd3fc" strokeWidth={4} />
+            <path
+              d="M -6 -6 L 4 0 L -6 6"
+              transform={`rotate(${angle})`}
+              fill="none"
+              stroke="#e0f2fe"
+              strokeWidth={4}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </g>
+        )
+      })}
+    </g>
+  )
+}
+
+/** 光っているビルの縁取り（光）の太さ。当たり判定もこの分だけ広げて、見た目とそろえる */
+const GLOW_MARGIN = 4
+/** 光っていないビルの外周の線の太さの半分 */
+const PARAPET_MARGIN = 1.5
+
+/**
+ * ビルの見た目どおりの当たり判定（屋上と、見えている壁）。onTap がなければタップをふさぐだけ。
+ * 光っているビル（onTap あり）は縁取りの光の分だけ広げる
+ */
+function BuildingHitArea({
+  mode,
+  id,
+  onTap,
+}: {
+  mode: ViewMode
+  id: BuildingId
+  onTap?(id: BuildingId): void
+}) {
+  const box = buildingBox(id)
+  const m = onTap ? GLOW_MARGIN : PARAPET_MARGIN
+  const [x0, x1, y0, y1, h] = [box.x0 - m, box.x1 + m, box.y0 - m, box.y1 + m, box.h]
+  const p = (x: number, y: number, z: number) => project(mode, x, y, z)
+  const roof = [p(x0, y0, h), p(x1, y0, h), p(x1, y1, h), p(x0, y1, h)]
+  const front = [p(x0, y1, h), p(x1, y1, h), p(x1, y1, 0), p(x0, y1, 0)]
+  const right = [p(x1, y0, h), p(x1, y1, h), p(x1, y1, 0), p(x1, y0, 0)]
+  return (
+    <g
+      data-building-hit={id}
+      onClick={onTap ? () => onTap(id) : undefined}
+      className={onTap ? 'cursor-pointer' : undefined}
+      fill="transparent"
+    >
+      <polygon points={points(roof)} />
+      <polygon points={points(front)} />
+      {showsRightWall(mode) && <polygon points={points(right)} />}
+    </g>
+  )
+}
+
 /** 警察のヘリコプター（横から見たイラスト。交差点の上空を飛んでいる） */
 function Helicopter({
   mode,
@@ -556,8 +736,8 @@ function Helicopter({
   at,
   acted,
   selected,
-  selectable,
-  hitArea,
+  hit,
+  faded,
   onTap,
 }: {
   mode: ViewMode
@@ -565,21 +745,25 @@ function Helicopter({
   at: IntersectionId
   acted: boolean
   selected: boolean
-  selectable: boolean
-  hitArea: 'wide' | 'compact' | 'none'
+  /**
+   * タップの受け取り方。wide: 機体のまわりの広い楕円 / painted: 描かれた部分だけ / none: 受け取らない
+   */
+  hit: 'wide' | 'painted' | 'none'
+  /** 半透明にする（選んだヘリコプターの下のビルを見せる） */
+  faded: boolean
   onTap(helicopter: HelicopterIndex): void
 }) {
   const g = intersectionGround(mode, at)
   const body = acted ? '#64748b' : HELICOPTER_COLORS[helicopter]
   const outline = '#0f172a'
-  const tappable = selectable && hitArea !== 'none'
+  const tappable = hit !== 'none'
   return (
     <g
       data-helicopter={helicopter}
       onClick={tappable ? () => onTap(helicopter) : undefined}
       className={`bc-move ${tappable ? 'cursor-pointer' : ''}`}
       pointerEvents={tappable ? undefined : 'none'}
-      opacity={hitArea === 'none' ? 0.45 : 1}
+      opacity={faded ? 0.55 : 1}
       style={{ transform: `translate(${g.x}px, ${g.y}px)` }}
     >
       <g transform={`translate(0, ${-HELI_LIFT}) scale(${HELI_SCALE})`}>
@@ -679,12 +863,12 @@ function Helicopter({
           {!acted && <ellipse cy={-32} rx={44} ry={3} fill="#e2e8f0" opacity={0.15} />}
           <circle cy={-32} r={3.5} fill={outline} />
 
-          {tappable && (
+          {hit === 'wide' && (
             <ellipse
-              cx={6}
-              cy={-6}
-              rx={hitArea === 'wide' ? 44 : 32}
-              ry={hitArea === 'wide' ? 34 : 30}
+              cx={HELI_HIT.cx}
+              cy={HELI_HIT.cy}
+              rx={HELI_HIT.rx}
+              ry={HELI_HIT.ry}
               fill="transparent"
             />
           )}

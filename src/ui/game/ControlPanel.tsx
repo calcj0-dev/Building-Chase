@@ -8,33 +8,26 @@ import {
   type GameState,
   type SearchRecord,
 } from '../../core'
-import {
-  isHumanTurn,
-  nextHelicopterToPlace,
-  useGameStore,
-  type PoliceMode,
-} from '../../store/gameStore'
+import { isHumanTurn, nextHelicopterToPlace, useGameStore } from '../../store/gameStore'
 import { BackIcon, MoveIcon, SearchIcon } from '../icons'
 
-/** 手順の案内、警察の行動ボタン、直前の捜索結果（searching の間は「捜索中」と出し、結果はまだ見せない） */
+/**
+ * 手順の案内と直前の捜索結果（searching の間は「捜索中」と出し、結果はまだ見せない）。
+ * 警察がヘリコプターを選んでいる間は、盤面の光り方の見方（青 = 移動 / 黄 = 捜索）と「戻る」を出す
+ */
 export function ControlPanel({ searching }: { searching: boolean }) {
   const { t } = useTranslation()
   const game = useGameStore((s) => s.game)
   const selectedHelicopter = useGameStore((s) => s.selectedHelicopter)
-  const mode = useGameStore((s) => s.mode)
   const lastSearch = useGameStore((s) => s.lastSearch)
-  const chooseMode = useGameStore((s) => s.chooseMode)
   const cancelSelection = useGameStore((s) => s.cancelSelection)
 
   const humanTurn = useGameStore(isHumanTurn)
   // CPU の手番は操作案内を出さない（ヘッダーに「CPU思考中...」を表示）
-  const instruction = humanTurn ? instructionText(t, game, selectedHelicopter, mode) : null
-  const showActions = humanTurn && game.phase === 'police' && selectedHelicopter !== null
-  // 捜索できるビル（痕跡を見つけたビルは除く）や移動先がなければ、そのボタンは押せない
-  const canMove =
-    selectedHelicopter !== null && policeMoveTargets(game, selectedHelicopter).length > 0
-  const canSearch =
-    selectedHelicopter !== null && policeSearchTargets(game, selectedHelicopter).length > 0
+  const instruction = humanTurn ? instructionText(t, game, selectedHelicopter) : null
+  const choosing = humanTurn && game.phase === 'police' && selectedHelicopter !== null
+  const canMove = choosing && policeMoveTargets(game, selectedHelicopter).length > 0
+  const canSearch = choosing && policeSearchTargets(game, selectedHelicopter).length > 0
 
   return (
     <div className="flex w-full flex-col items-center gap-3">
@@ -50,61 +43,52 @@ export function ControlPanel({ searching }: { searching: boolean }) {
       {instruction && (
         <p className="text-center text-sm font-medium text-slate-200">{instruction}</p>
       )}
-      {showActions && (
-        <div className="grid w-full max-w-sm grid-cols-3 gap-2">
-          <ActionButton
-            variant={mode === 'move' ? 'active' : 'primary'}
-            icon={<MoveIcon />}
-            disabled={!canMove}
-            onClick={() => chooseMode('move')}
+      {choosing && (
+        <div className="flex w-full max-w-sm flex-wrap items-center justify-center gap-2">
+          {canMove && (
+            <Legend className="border-sky-300/60 bg-sky-950/80 text-sky-100" icon={<MoveIcon />}>
+              {t('instruction.legendMove')}
+            </Legend>
+          )}
+          {canSearch && (
+            <Legend
+              className="border-amber-300/60 bg-amber-950/80 text-amber-100"
+              icon={<SearchIcon />}
+            >
+              {t('instruction.legendSearch')}
+            </Legend>
+          )}
+          <button
+            type="button"
+            onClick={cancelSelection}
+            className="flex min-h-11 items-center justify-center gap-1 rounded-xl bg-slate-700/80 px-3 text-sm font-bold whitespace-nowrap text-slate-200 active:bg-slate-700"
           >
-            {t('action.move')}
-          </ActionButton>
-          <ActionButton
-            variant={mode === 'search' ? 'active' : 'primary'}
-            icon={<SearchIcon />}
-            disabled={!canSearch}
-            onClick={() => chooseMode('search')}
-          >
-            {t('action.search')}
-          </ActionButton>
-          <ActionButton variant="subtle" icon={<BackIcon />} onClick={cancelSelection}>
+            <BackIcon />
             {t('action.back')}
-          </ActionButton>
+          </button>
         </div>
       )}
     </div>
   )
 }
 
-function ActionButton({
-  variant,
+/** 盤面の光り方の見方（色とアイコンを盤面にそろえる） */
+function Legend({
+  className,
   icon,
-  disabled = false,
-  onClick,
   children,
 }: {
-  variant: 'primary' | 'active' | 'subtle'
+  className: string
   icon: ReactNode
-  disabled?: boolean
-  onClick(): void
   children: ReactNode
 }) {
-  const style = {
-    primary: 'bg-sky-600 text-white shadow-lg shadow-sky-900/40 active:bg-sky-700',
-    active: 'bg-amber-300 text-slate-900 shadow-lg shadow-amber-700/40 ring-2 ring-amber-100',
-    subtle: 'bg-slate-700/80 text-slate-200 active:bg-slate-700',
-  }[variant]
   return (
-    <button
-      type="button"
-      className={`flex min-h-12 items-center justify-center gap-1 rounded-xl px-2 font-bold whitespace-nowrap disabled:opacity-35 disabled:shadow-none ${style}`}
-      disabled={disabled}
-      onClick={onClick}
+    <span
+      className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-bold whitespace-nowrap ${className}`}
     >
       {icon}
       {children}
-    </button>
+    </span>
   )
 }
 
@@ -129,12 +113,7 @@ function SearchToast({ game, search }: { game: GameState; search: SearchRecord }
 
 type T = (key: string, options?: Record<string, unknown>) => string
 
-function instructionText(
-  t: T,
-  game: GameState,
-  selectedHelicopter: number | null,
-  mode: PoliceMode | null,
-): string | null {
+function instructionText(t: T, game: GameState, selectedHelicopter: number | null): string | null {
   switch (game.phase) {
     case 'setup': {
       const helicopter = nextHelicopterToPlace(game)
@@ -150,8 +129,6 @@ function instructionText(
           ? t('instruction.policeFinalSearch')
           : t('instruction.policeSelectHelicopter')
       }
-      if (mode === 'move') return t('instruction.policeMove')
-      if (mode === 'search') return t('instruction.policeSearch')
       return t('instruction.policeChooseAction', { number: selectedHelicopter + 1 })
     case 'ended':
       return null

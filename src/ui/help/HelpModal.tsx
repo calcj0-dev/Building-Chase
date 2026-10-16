@@ -89,7 +89,6 @@ export function HelpModal() {
               highlightedIntersections={diagram.highlightedIntersections}
               selectableHelicopters={[]}
               selectedHelicopter={diagram.selectedHelicopter}
-              policeMode={null}
               onTapBuilding={noop}
               onTapIntersection={noop}
               onTapHelicopter={noop}

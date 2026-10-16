@@ -74,7 +74,6 @@ export function ResultScreen() {
           highlightedIntersections={[]}
           selectableHelicopters={[]}
           selectedHelicopter={null}
-          policeMode={null}
           onTapBuilding={() => {}}
           onTapIntersection={() => {}}
           onTapHelicopter={() => {}}
