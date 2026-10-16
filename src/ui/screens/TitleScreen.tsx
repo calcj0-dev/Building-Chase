@@ -7,6 +7,7 @@ export function TitleScreen() {
   const { t } = useTranslation()
   const go = useAppStore((s) => s.go)
   const openSettings = useAppStore((s) => s.openSettings)
+  const openHelp = useAppStore((s) => s.openHelp)
   return (
     <main className="mx-auto flex min-h-full max-w-sm flex-col items-center justify-center gap-4 p-6">
       <h1 className="text-center text-5xl leading-none font-black tracking-tight">
@@ -19,7 +20,7 @@ export function TitleScreen() {
       <Button size="lg" className="w-full" onClick={() => go('select')}>
         {t('title.start')}
       </Button>
-      <Button size="lg" variant="subtle" className="w-full" onClick={() => go('help')}>
+      <Button size="lg" variant="subtle" className="w-full" onClick={openHelp}>
         {t('title.help')}
       </Button>
       <Button

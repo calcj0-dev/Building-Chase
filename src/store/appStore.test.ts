@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { useAppStore } from './appStore'
 
 describe('appStore', () => {
-  beforeEach(() => useAppStore.setState({ screen: 'title', settingsOpen: false }))
+  beforeEach(() => useAppStore.setState({ screen: 'title', settingsOpen: false, helpOpen: false }))
 
   it('starts on the title screen', () => {
     expect(useAppStore.getState().screen).toBe('title')
@@ -13,6 +13,13 @@ describe('appStore', () => {
     expect(useAppStore.getState().settingsOpen).toBe(true)
     useAppStore.getState().closeSettings()
     expect(useAppStore.getState().settingsOpen).toBe(false)
+  })
+
+  it('opens and closes the help slides', () => {
+    useAppStore.getState().openHelp()
+    expect(useAppStore.getState().helpOpen).toBe(true)
+    useAppStore.getState().closeHelp()
+    expect(useAppStore.getState().helpOpen).toBe(false)
   })
 
   it('closes the settings dialog when moving to another screen', () => {

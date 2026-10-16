@@ -41,20 +41,28 @@
     "title": "How to Play",
     "basics": {
       "heading": "Basics",
-      "body": "Before the game starts, the police place their helicopters and the runner hides in any building. Each round, the police act first, then the runner moves. After 11 rounds the police get one final search; the runner wins by surviving it, the police win by finding the runner before then."
+      "body": "Before the game starts, the police place their helicopters and the runner hides in any building. Each round, the police act first, then the runner moves. After 11 rounds the police get one final search; the runner wins by surviving it, the police win by finding the runner before then.",
+      "diagram": "Diagram: 3 helicopters on intersections and the runner hiding in a building (the police cannot see it)"
     },
     "runner": {
       "heading": "The Runner",
-      "body": "Each round, move to a building directly above, below, left or right (no diagonals). Moving leaves a trace in the building you left, and you can never re-enter a building with a trace. If you have nowhere to go, you are caught (surrounded)."
+      "body": "Each round, move to a building directly above, below, left or right (no diagonals). Moving leaves a trace in the building you left, and you can never re-enter a building with a trace. If you have nowhere to go, you are caught (surrounded).",
+      "diagram": "Diagram: the glowing buildings are where the runner can move next. Buildings with a trace are off-limits"
     },
     "police": {
       "heading": "The Police",
-      "body": "Pick a helicopter, then either Move (to an adjacent intersection) or Search (one of the 4 surrounding buildings). When all 3 have acted, it is the runner's turn. You can search right after the runner hides."
+      "body": "Pick a helicopter, then either Move (to an adjacent intersection) or Search (one of the 4 surrounding buildings). When all 3 have acted, it is the runner's turn. You can search right after the runner hides.",
+      "diagram": "Diagram: the selected helicopter can move to a glowing intersection or search a glowing building"
     },
     "traces": {
       "heading": "Traces and Deduction",
-      "body": "A search finds either the runner or a trace. The 1st trace (yellow) marks the start point and the 6th trace (red) marks where the runner was after 5 moves; only these two show their number. Connect the traces to work out where the runner is now."
-    }
+      "body": "A search finds either the runner or a trace. The 1st trace (yellow) marks the start point and the 6th trace (red) marks where the runner was after 5 moves; only these two show their number. Connect the traces to work out where the runner is now.",
+      "diagram": "Diagram: the board as the police see it. Of the traces found, yellow “1” is the start point and red “6” is where the runner was after 5 moves. A blue “!” is a trace whose number is unknown"
+    },
+    "page": "{{current}} / {{total}}",
+    "prev": "Back",
+    "next": "Next",
+    "done": "Got it"
   },
   "settings": {
     "title": "Settings",
