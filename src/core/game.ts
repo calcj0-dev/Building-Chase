@@ -29,6 +29,7 @@ export function createGame(): GameState {
     runnerPosition: null,
     traces: [],
     searchLog: [],
+    moveLog: [],
     winner: null,
     endReason: null,
   }
@@ -193,9 +194,11 @@ function policeMove(
       `Helicopter ${helicopter} cannot move to intersection ${intersection}`,
     )
   }
+  const from = state.helicopters[helicopter] as IntersectionId
   const moved = {
     ...state,
     helicopters: state.helicopters.map((p, i) => (i === helicopter ? intersection : p)),
+    moveLog: [...state.moveLog, { round: state.round, helicopter, from, to: intersection }],
   }
   return finishHelicopterAction(moved, helicopter)
 }

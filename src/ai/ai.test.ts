@@ -194,6 +194,40 @@ describe('police AI: moving and searching', () => {
   })
 
   it.each(CPU_LEVELS)(
+    'hardly moves straight back or re-searches a building that was just empty (%s)',
+    (level) => {
+      let moves = 0
+      let backs = 0
+      let searches = 0
+      let repeats = 0
+      for (let seed = 500; seed < 530; seed++) {
+        const rng = seededRng(seed)
+        let s = createGame()
+        while (s.phase !== 'ended') {
+          const action = chooseCpuAction(s, rng, currentRole(s) === 'police' ? level : 'strong')
+          if (action.type === 'policeMove') {
+            moves++
+            const last = s.moveLog.findLast((m) => m.helicopter === action.helicopter)
+            if (last && last.round === s.round - 1 && last.from === action.intersection) backs++
+          }
+          if (action.type === 'policeSearch') {
+            searches++
+            const empty = s.searchLog.some(
+              (r) =>
+                r.building === action.building && r.outcome === 'nothing' && r.round >= s.round - 2,
+            )
+            if (empty) repeats++
+          }
+          s = applyAction(s, action)
+        }
+      }
+      console.info(`Police (${level}):`, { backs: backs / moves, repeats: repeats / searches })
+      expect(backs / moves).toBeLessThan(0.03)
+      expect(repeats / searches).toBeLessThan(level === 'normal' ? 0.05 : 0.15)
+    },
+  )
+
+  it.each(CPU_LEVELS)(
     'moves when the last helicopter has only buildings with found traces to search (%s)',
     (level) => {
       // ヘリコプター0 は角の交差点0（ビル 0, 1, 5, 6）。逃亡者は 0 → 1 → 6 → 5 → 10 → 15 と動き、

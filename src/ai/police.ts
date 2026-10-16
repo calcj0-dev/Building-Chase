@@ -11,8 +11,8 @@ import {
   type IntersectionId,
   type HelicopterIndex,
 } from '../core'
-import { inferRunner, type PoliceKnowledge, type RunnerBelief } from './inference'
-import { NORMAL_POLICE_MEMORY_ROUNDS, NORMAL_POLICE_MISTAKE_RATE, type CpuLevel } from './level'
+import { inferRunner, type RunnerBelief } from './inference'
+import type { CpuLevel } from './level'
 import { pickBest, type Rng } from './random'
 
 // 中央の4交差点はそれぞれ内側のビル4棟に接し、序盤の捜索範囲が最も広い
@@ -38,19 +38,35 @@ export interface PoliceWeights {
    * いそうなビル（here が大きい）なら手間を上回るので捜索する
    */
   searchCost: number
+  /** 来た交差点へすぐ戻る移動（前のラウンドの移動を取り消す動き）の点数から引く値 */
+  backtrackPenalty: number
+  /** 直近 REPEAT_SEARCH_ROUNDS ラウンドに「何もない」だったビルをまた捜索するときに引く値 */
+  repeatSearchPenalty: number
 }
 
-// CPU同士の対戦で比較し、複数の逃亡者の戦略に対して安定して強かった値。
-// searchCost 0.3 で行動の約3割が移動になる（0 のときは約1割で、むしろ弱かった。0.35 を超えると急に弱くなる）
+/** 「何もない」だったビルの捜索を避ける期間（ラウンド数。今のラウンドを含む） */
+const REPEAT_SEARCH_ROUNDS = 3
+
+// 強い警察: CPU同士の対戦で比較し、複数の逃亡者の戦略に対して安定して強かった値。
+// searchCost 0.3 で行動の約3割が移動になる（0 のときは約1割で、むしろ弱かった。0.35 を超えると急に弱くなる）。
+// 「何もない」だったビルの再捜索は推理上は意味があることも多いので、点数は少しだけ下げる
 export const DEFAULT_POLICE_WEIGHTS: PoliceWeights = {
   future: 1.5,
   info: 0.3,
   futureMode: 'sum',
   searchCost: 0.3,
+  backtrackPenalty: 0.3,
+  repeatSearchPenalty: 0.05,
 }
 
-// 普通の警察: 捜索の手間を大きくして、行動の約半分を移動にする
-export const NORMAL_POLICE_WEIGHTS: PoliceWeights = { ...DEFAULT_POLICE_WEIGHTS, searchCost: 0.38 }
+// 普通の警察: 捜索の手間を大きくして移動を増やし（行動の約半分）、「何もない」だったビルの再捜索を避ける。
+// 推理そのものは強い警察と同じ（以前の「忘れる」「ときどき適当に動く」手加減は、行ったり来たりや
+// 同じビルの捜索の繰り返しに見えたのでやめた）
+export const NORMAL_POLICE_WEIGHTS: PoliceWeights = {
+  ...DEFAULT_POLICE_WEIGHTS,
+  searchCost: 0.38,
+  repeatSearchPenalty: 0.5,
+}
 
 const POLICE_WEIGHTS: Record<CpuLevel, PoliceWeights> = {
   normal: NORMAL_POLICE_WEIGHTS,
@@ -60,8 +76,9 @@ const POLICE_WEIGHTS: Record<CpuLevel, PoliceWeights> = {
 /**
  * CPU警察の行動を1つ選ぶ（ヘリコプター1機分）。
  * 引数は警察視点の GameView のみ。逃亡者の位置は参照できない。
- * 普通（normal）の警察は、2ラウンドより前の「何もない」捜索を推理に使わず、ときどき適当に行動し、移動が多い。
+ * 強さの違いは weights（POLICE_WEIGHTS）だけで決まる。
  * 捜索は手間（searchCost）を引いて評価するので、逃亡者がいそうなビルを捜索できないときは移動して位置を取る。
+ * 来た交差点へすぐ戻る移動と、最近「何もない」だったビルの捜索は点数を下げる（いそうなら上回るので行う）。
  */
 export function choosePoliceAction(
   view: GameView,
@@ -73,7 +90,7 @@ export function choosePoliceAction(
   if (view.phase === 'setup') return choosePlacement(view, rng)
   if (view.phase !== 'police') throw new Error(`Police cannot act in phase ${view.phase}`)
 
-  const belief = inferRunner(level === 'normal' ? forgetOldMisses(view) : view)
+  const belief = inferRunner(view)
   const waiting = HELICOPTERS.filter((helicopter) => !view.actedHelicopters[helicopter])
   let options = waiting.flatMap((helicopter) =>
     helicopterOptions(view, helicopter, belief, weights),
@@ -85,20 +102,7 @@ export function choosePoliceAction(
     const searches = options.filter((o) => o.action.type === 'policeSearch')
     if (searches.length > 0) options = searches
   }
-  if (level === 'normal' && rng() < NORMAL_POLICE_MISTAKE_RATE) {
-    return options[Math.floor(rng() * options.length)].action
-  }
   return pickBest(options, (o) => o.score, rng).action
-}
-
-/** 古い「何もない」捜索を忘れる（直近 NORMAL_POLICE_MEMORY_ROUNDS ラウンド分と、見つけた痕跡は覚えている） */
-function forgetOldMisses(view: GameView): PoliceKnowledge {
-  return {
-    ...view,
-    searchLog: view.searchLog.filter(
-      (s) => s.outcome !== 'nothing' || s.round > view.round - NORMAL_POLICE_MEMORY_ROUNDS,
-    ),
-  }
 }
 
 /** 捜索結果（車 / 痕跡 / 何もない）のエントロピー。結果が読めないビルほど調べる価値がある */
@@ -136,6 +140,15 @@ function helicopterOptions(
 
   // 痕跡を見つけたビルは、もう捜索できない
   const found = new Set(view.traces.filter((t) => t.found).map((t) => t.building))
+  // 最近「何もない」だったビル（いそうなら手間を上回るので、また捜索する）
+  const recentlyEmpty = new Set(
+    view.searchLog
+      .filter((s) => s.outcome === 'nothing' && s.round > view.round - REPEAT_SEARCH_ROUNDS)
+      .map((s) => s.building),
+  )
+  // 前のラウンドにこのヘリコプターが来た交差点（すぐ戻ると、行ったり来たりになる）
+  const lastMove = view.moveLog.findLast((m) => m.helicopter === helicopter)
+  const cameFrom = lastMove && lastMove.round === view.round - 1 ? lastMove.from : null
   const searches = BUILDINGS_AROUND_INTERSECTION[at]
     .filter((building) => !found.has(building))
     .map((building) => ({
@@ -144,7 +157,8 @@ function helicopterOptions(
         belief.here[building] +
         weights.info * outcomeEntropy(belief.here[building], belief.visited[building]) +
         weights.future * future(at) -
-        weights.searchCost,
+        weights.searchCost -
+        (recentlyEmpty.has(building) ? weights.repeatSearchPenalty : 0),
     }))
 
   // 最後の捜索では移動しても意味がない（捜索できるビルがなければ、移動して手番を終える）
@@ -155,7 +169,9 @@ function helicopterOptions(
     .filter((i) => !occupied.has(i))
     .map((intersection) => ({
       action: { type: 'policeMove', helicopter, intersection } as Action,
-      score: weights.future * future(intersection),
+      score:
+        weights.future * future(intersection) -
+        (intersection === cameFrom ? weights.backtrackPenalty : 0),
     }))
 
   return [...searches, ...moves]

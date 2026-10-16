@@ -1,6 +1,14 @@
 import type { BuildingId, IntersectionId } from './board'
 import { traceColorForRound } from './game'
-import type { EndReason, GameState, Phase, Role, SearchRecord, TraceColor } from './types'
+import type {
+  EndReason,
+  GameState,
+  MoveRecord,
+  Phase,
+  Role,
+  SearchRecord,
+  TraceColor,
+} from './types'
 
 export interface VisibleTrace {
   building: BuildingId
@@ -23,6 +31,7 @@ export interface GameView {
   /** 置かれた痕跡の数（ラウンドボードの進行表示用。警察にも分かる情報） */
   traceCount: number
   searchLog: SearchRecord[]
+  moveLog: MoveRecord[]
   winner: Role | null
   endReason: EndReason | null
 }
@@ -53,6 +62,7 @@ export function getView(state: GameState, role: Role): GameView {
     traces,
     traceCount: state.traces.length,
     searchLog: state.searchLog.map((s) => ({ ...s })),
+    moveLog: state.moveLog.map((m) => ({ ...m })),
     winner: state.winner,
     endReason: state.endReason,
   }

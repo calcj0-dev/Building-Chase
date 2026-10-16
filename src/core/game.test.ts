@@ -10,6 +10,7 @@ import {
   traceColorForRound,
 } from './game'
 import { applyAll, hideAt, placeAll, playRounds, searchAll } from './testUtils'
+import { getView } from './view'
 import type { Action, GameState } from './types'
 
 // ビル ID           交差点 ID
@@ -287,6 +288,14 @@ describe('search', () => {
     s = applyAction(s, { type: 'policeSearch', helicopter: 0, building: 6 })
     expect(s.traces).toEqual([{ round: 1, building: 6, found: true }])
     expect(s.searchLog.at(-1)).toMatchObject({ round: 2, outcome: 'trace' })
+  })
+
+  it('records helicopter moves for both sides', () => {
+    let s = hideAt(placeAll([5, 6, 10]), 12)
+    s = applyAction(s, { type: 'policeMove', helicopter: 0, intersection: 4 })
+    expect(s.moveLog).toEqual([{ round: 1, helicopter: 0, from: 5, to: 4 }])
+    expect(getView(s, 'police').moveLog).toEqual(s.moveLog)
+    expect(getView(s, 'runner').moveLog).toEqual(s.moveLog)
   })
 
   it('cannot search a building whose trace has already been found', () => {

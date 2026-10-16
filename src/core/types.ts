@@ -31,6 +31,14 @@ export interface SearchRecord {
   outcome: SearchOutcome
 }
 
+/** ヘリコプターの移動の記録（どちらの陣営にも見える） */
+export interface MoveRecord {
+  round: number
+  helicopter: HelicopterIndex
+  from: IntersectionId
+  to: IntersectionId
+}
+
 export interface GameState {
   phase: Phase
   /** 現在のラウンド（1〜11、12 は最後の捜索）。ゲーム開始前（setup / hide）は 0 */
@@ -44,6 +52,7 @@ export interface GameState {
   /** ラウンド順の痕跡（Round n の移動で、移動前のビルに n 番目の痕跡を残す） */
   traces: Trace[]
   searchLog: SearchRecord[]
+  moveLog: MoveRecord[]
   winner: Role | null
   endReason: EndReason | null
 }
