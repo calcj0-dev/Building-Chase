@@ -2,6 +2,8 @@ import { useTranslation } from 'react-i18next'
 import type { ReactNode } from 'react'
 import {
   FINAL_SEARCH_ROUND,
+  policeMoveTargets,
+  policeSearchTargets,
   traceColorForRound,
   type GameState,
   type SearchRecord,
@@ -28,6 +30,11 @@ export function ControlPanel({ searching }: { searching: boolean }) {
   // CPU の手番は操作案内を出さない（ヘッダーに「CPU思考中...」を表示）
   const instruction = humanTurn ? instructionText(t, game, selectedHelicopter, mode) : null
   const showActions = humanTurn && game.phase === 'police' && selectedHelicopter !== null
+  // 捜索できるビル（痕跡を見つけたビルは除く）や移動先がなければ、そのボタンは押せない
+  const canMove =
+    selectedHelicopter !== null && policeMoveTargets(game, selectedHelicopter).length > 0
+  const canSearch =
+    selectedHelicopter !== null && policeSearchTargets(game, selectedHelicopter).length > 0
 
   return (
     <div className="flex w-full flex-col items-center gap-3">
@@ -48,6 +55,7 @@ export function ControlPanel({ searching }: { searching: boolean }) {
           <ActionButton
             variant={mode === 'move' ? 'active' : 'primary'}
             icon={<MoveIcon />}
+            disabled={!canMove}
             onClick={() => chooseMode('move')}
           >
             {t('action.move')}
@@ -55,6 +63,7 @@ export function ControlPanel({ searching }: { searching: boolean }) {
           <ActionButton
             variant={mode === 'search' ? 'active' : 'primary'}
             icon={<SearchIcon />}
+            disabled={!canSearch}
             onClick={() => chooseMode('search')}
           >
             {t('action.search')}
@@ -71,11 +80,13 @@ export function ControlPanel({ searching }: { searching: boolean }) {
 function ActionButton({
   variant,
   icon,
+  disabled = false,
   onClick,
   children,
 }: {
   variant: 'primary' | 'active' | 'subtle'
   icon: ReactNode
+  disabled?: boolean
   onClick(): void
   children: ReactNode
 }) {
@@ -87,7 +98,8 @@ function ActionButton({
   return (
     <button
       type="button"
-      className={`flex min-h-12 items-center justify-center gap-1 rounded-xl px-2 font-bold whitespace-nowrap ${style}`}
+      className={`flex min-h-12 items-center justify-center gap-1 rounded-xl px-2 font-bold whitespace-nowrap disabled:opacity-35 disabled:shadow-none ${style}`}
+      disabled={disabled}
       onClick={onClick}
     >
       {icon}

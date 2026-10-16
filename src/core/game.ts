@@ -75,10 +75,12 @@ export function policeMoveTargets(state: GameState, helicopter: HelicopterIndex)
   return INTERSECTION_NEIGHBORS[from].filter((i) => !state.helicopters.includes(i))
 }
 
-/** 警察フェーズで、そのヘリコプターが捜索できるビル */
+/** 警察フェーズで、そのヘリコプターが捜索できるビル（痕跡を見つけたビルは、もう捜索できない） */
 export function policeSearchTargets(state: GameState, helicopter: HelicopterIndex): BuildingId[] {
   const at = activeHelicopterPosition(state, helicopter)
-  return at === null ? [] : [...BUILDINGS_AROUND_INTERSECTION[at]]
+  if (at === null) return []
+  const found = new Set(state.traces.filter((t) => t.found).map((t) => t.building))
+  return BUILDINGS_AROUND_INTERSECTION[at].filter((b) => !found.has(b))
 }
 
 export function getLegalActions(state: GameState): Action[] {
@@ -170,14 +172,14 @@ function runnerMove(state: GameState, building: BuildingId): GameState {
     }
   }
   const from = state.runnerPosition as BuildingId
-  return {
+  return advancePolice({
     ...state,
     phase: 'police',
     round: state.round + 1,
     runnerPosition: building,
     traces: [...state.traces, { round: state.round, building: from, found: false }],
     actedHelicopters: state.actedHelicopters.map(() => false),
-  }
+  })
 }
 
 function policeMove(
@@ -238,6 +240,20 @@ function policeSearch(
 
 function finishHelicopterAction(state: GameState, helicopter: HelicopterIndex): GameState {
   const actedHelicopters = state.actedHelicopters.map((a, i) => (i === helicopter ? true : a))
+  return advancePolice({ ...state, actedHelicopters })
+}
+
+/**
+ * 警察フェーズを進める。何もできないヘリコプター（捜索できるビルも、移動できる交差点もない）は
+ * 行動済みとして扱い、3機とも行動済みなら逃亡者フェーズ（または決着）へ
+ */
+function advancePolice(state: GameState): GameState {
+  const actedHelicopters = state.actedHelicopters.map(
+    (acted, i) =>
+      acted ||
+      (policeMoveTargets(state, i as HelicopterIndex).length === 0 &&
+        policeSearchTargets(state, i as HelicopterIndex).length === 0),
+  )
   if (!actedHelicopters.every(Boolean)) return { ...state, actedHelicopters }
 
   // 最後の捜索で見つからなければ逃亡者の勝ち

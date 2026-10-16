@@ -32,6 +32,8 @@ const CPU_THINK_MS = 700
 const RESULT_DELAY_MS = 1800
 /** 捜索でビルの中を探す演出の長さ（ms）。結果のマーク・バナー・逮捕の演出・音はその後 */
 const SEARCH_SCAN_MS = SEARCH_SCAN_SEC * 1000
+/** 手番が替わってから「YOUR TURN / ENEMY TURN」や「端末を渡す」画面を出すまでの間（ms）。最後の行動の結果を見せる */
+const TURN_CHANGE_DELAY_MS = 1000
 
 export function GameScreen() {
   const { t } = useTranslation()
@@ -56,20 +58,39 @@ export function GameScreen() {
     return () => clearTimeout(timer)
   }, [scanning, searchKey])
 
-  // ターン切り替えのカットイン（VS CPU のみ。2人で遊ぶでは「端末を渡す」画面が同じ役目）
-  // 「端末を渡す」画面も、捜索の演出が終わってから出す
+  // ターン切り替えのカットイン（VS CPU のみ。2人で遊ぶでは「端末を渡す」画面が同じ役目）。
+  // 手番の最後の行動（捜索なら演出が終わってから）の結果を見せるため、TURN_CHANGE_DELAY_MS 待ってから出す。
+  // ゲーム開始時の最初のカットインは待たない
   const turnOwner =
     humanSide === 'both' || game.phase === 'ended' ? null : isHumanTurn(store) ? 'your' : 'enemy'
   const [cutIn, setCutIn] = useState<'your' | 'enemy' | null>(null)
   const [lastOwner, setLastOwner] = useState<typeof turnOwner>(null)
-  // 捜索の演出の間は、終わってから出す（手番の最後の捜索を隠さない）
-  if (turnOwner !== lastOwner && !scanning) {
-    setLastOwner(turnOwner)
-    setCutIn(turnOwner)
-  }
+  const turnChanging = turnOwner !== lastOwner
+  useEffect(() => {
+    if (!turnChanging || scanning) return
+    const timer = setTimeout(
+      () => {
+        setLastOwner(turnOwner)
+        setCutIn(turnOwner)
+      },
+      lastOwner === null ? 0 : TURN_CHANGE_DELAY_MS,
+    )
+    return () => clearTimeout(timer)
+  }, [turnChanging, scanning, turnOwner, lastOwner])
   const hideCutIn = useCallback(() => setCutIn(null), [])
 
-  const handoffTo = scanning ? null : store.handoffTo
+  // 「端末を渡す」画面も同じように待ってから出す
+  const pendingHandoff = scanning ? null : store.handoffTo
+  const [handoffTo, setHandoffTo] = useState(pendingHandoff)
+  if (pendingHandoff === null && handoffTo !== null) setHandoffTo(null)
+  useEffect(() => {
+    if (pendingHandoff === null) return
+    const timer = setTimeout(() => setHandoffTo(pendingHandoff), TURN_CHANGE_DELAY_MS)
+    return () => clearTimeout(timer)
+  }, [pendingHandoff])
+
+  // 演出の間（捜索中・手番の切り替え待ち）は盤面を操作できない
+  const busy = scanning || turnChanging
 
   // 捜索の演出の間は、捜索する前の盤面を見せる（見つけた痕跡や、逮捕で公開される逃亡者を先に見せない）
   const [history, setHistory] = useState({ game, before: game })
@@ -123,12 +144,12 @@ export function GameScreen() {
     [tapHelicopter],
   )
 
-  // CPU の手番を進める。設定画面を開いている間・カットインの間・捜索の演出の間は止める
+  // CPU の手番を進める。設定画面を開いている間・カットインの間・演出の間（捜索中・手番の切り替え待ち）は止める
   useEffect(() => {
-    if (!cpuTurn || settingsOpen || cutIn || scanning) return
+    if (!cpuTurn || settingsOpen || cutIn || busy) return
     const timer = setTimeout(() => useGameStore.getState().cpuStep(), CPU_THINK_MS)
     return () => clearTimeout(timer)
-  }, [cpuTurn, game, settingsOpen, cutIn, scanning])
+  }, [cpuTurn, game, settingsOpen, cutIn, busy])
 
   // 決着したら少し間を置いてリザルト画面へ。勝敗の音はリザルト画面に移るときに鳴らす
   // （VS CPU で負けたときだけ負けの音。2人で遊ぶでは勝った側を祝う）
@@ -211,9 +232,9 @@ export function GameScreen() {
           className="h-full w-full landscape:w-auto landscape:max-w-[calc(100vw-260px)]"
           view={view}
           viewMode={viewMode}
-          highlightedBuildings={scanning ? [] : highlightedBuildings(store)}
-          highlightedIntersections={scanning ? [] : highlightedIntersections(store)}
-          selectableHelicopters={scanning ? [] : selectableHelicopters(store)}
+          highlightedBuildings={busy ? [] : highlightedBuildings(store)}
+          highlightedIntersections={busy ? [] : highlightedIntersections(store)}
+          selectableHelicopters={busy ? [] : selectableHelicopters(store)}
           selectedHelicopter={store.selectedHelicopter}
           policeMode={store.mode}
           onTapBuilding={store.tapBuilding}

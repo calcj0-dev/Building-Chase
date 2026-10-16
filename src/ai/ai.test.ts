@@ -5,6 +5,8 @@ import {
   currentRole,
   getLegalActions,
   getView,
+  policeSearchTargets,
+  type Action,
   type GameState,
   type Role,
 } from '../core'
@@ -190,6 +192,45 @@ describe('police AI: moving and searching', () => {
     expect(normal).toBeGreaterThan(0.35)
     expect(normal).toBeLessThan(0.65)
   })
+
+  it.each(CPU_LEVELS)(
+    'moves when the last helicopter has only buildings with found traces to search (%s)',
+    (level) => {
+      // ヘリコプター0 は角の交差点0（ビル 0, 1, 5, 6）。逃亡者は 0 → 1 → 6 → 5 → 10 → 15 と動き、
+      // ヘリコプター0 が 0・1・6・5 の痕跡を順に見つける
+      const idle = (h0: number): Action[] => [
+        { type: 'policeSearch', helicopter: 0, building: h0 },
+        { type: 'policeSearch', helicopter: 1, building: 2 },
+        { type: 'policeSearch', helicopter: 2, building: 9 },
+      ]
+      const run = (building: number): Action => ({ type: 'runnerMove', building })
+      let s = [
+        run(0),
+        ...idle(1),
+        run(1),
+        ...idle(0),
+        run(6),
+        ...idle(1),
+        run(5),
+        ...idle(6),
+        run(10),
+        ...idle(5),
+        run(15),
+        // このラウンドは他の2機が先に移動し、まだ誰も捜索していない
+        { type: 'policeMove', helicopter: 1, intersection: 3 } as Action,
+        { type: 'policeMove', helicopter: 2, intersection: 11 } as Action,
+      ].reduce(applyAction, placeAll([0, 2, 7]))
+      expect(s.phase).toBe('police')
+      expect(policeSearchTargets(s, 0)).toEqual([])
+      for (let seed = 1; seed <= 10; seed++) {
+        const action = choosePoliceAction(getView(s, 'police'), seededRng(seed), level)
+        expect(action.type).toBe('policeMove')
+        expect(isLegal(s, action)).toBe(true)
+      }
+      s = applyAction(s, choosePoliceAction(getView(s, 'police'), seededRng(1), level))
+      expect(s.phase).toBe('runner')
+    },
+  )
 
   it.each(CPU_LEVELS)('only searches in the final search (%s)', (level) => {
     // 5 に隠れて 6 → 7 → 8 → 9 → 14 → 13 → 12 → 11 → 10 → 15 → 16 と11回動く

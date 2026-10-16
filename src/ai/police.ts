@@ -80,8 +80,10 @@ export function choosePoliceAction(
   )
   // 移動ばかりで推理が進まなくならないよう、各ラウンドで最低1回は捜索する
   const searchedThisRound = view.searchLog.some((s) => s.round === view.round)
+  // （痕跡を見つけたビルばかりで捜索できるビルがないときは除く）
   if (waiting.length === 1 && !searchedThisRound) {
-    options = options.filter((o) => o.action.type === 'policeSearch')
+    const searches = options.filter((o) => o.action.type === 'policeSearch')
+    if (searches.length > 0) options = searches
   }
   if (level === 'normal' && rng() < NORMAL_POLICE_MISTAKE_RATE) {
     return options[Math.floor(rng() * options.length)].action
@@ -132,17 +134,21 @@ function helicopterOptions(
     return weights.futureMode === 'max' ? Math.max(0, ...values) : values.reduce((a, b) => a + b, 0)
   }
 
-  const searches = BUILDINGS_AROUND_INTERSECTION[at].map((building) => ({
-    action: { type: 'policeSearch', helicopter, building } as Action,
-    score:
-      belief.here[building] +
-      weights.info * outcomeEntropy(belief.here[building], belief.visited[building]) +
-      weights.future * future(at) -
-      weights.searchCost,
-  }))
+  // 痕跡を見つけたビルは、もう捜索できない
+  const found = new Set(view.traces.filter((t) => t.found).map((t) => t.building))
+  const searches = BUILDINGS_AROUND_INTERSECTION[at]
+    .filter((building) => !found.has(building))
+    .map((building) => ({
+      action: { type: 'policeSearch', helicopter, building } as Action,
+      score:
+        belief.here[building] +
+        weights.info * outcomeEntropy(belief.here[building], belief.visited[building]) +
+        weights.future * future(at) -
+        weights.searchCost,
+    }))
 
-  // 最後の捜索では移動しても意味がない
-  if (view.round >= FINAL_SEARCH_ROUND) return searches
+  // 最後の捜索では移動しても意味がない（捜索できるビルがなければ、移動して手番を終える）
+  if (view.round >= FINAL_SEARCH_ROUND && searches.length > 0) return searches
 
   const occupied = new Set(view.helicopters)
   const moves = INTERSECTION_NEIGHBORS[at]

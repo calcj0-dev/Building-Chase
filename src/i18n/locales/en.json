@@ -51,7 +51,7 @@
     },
     "police": {
       "heading": "The Police",
-      "body": "Pick a helicopter, then either Move (to an adjacent intersection) or Search (one of the 4 surrounding buildings). When all 3 have acted, it is the runner's turn. You can search right after the runner hides.",
+      "body": "Pick a helicopter, then either Move (to an adjacent intersection) or Search (one of the 4 surrounding buildings). A building where a trace was found cannot be searched again. When all 3 have acted, it is the runner's turn. You can search right after the runner hides.",
       "diagram": "Diagram: the selected helicopter can move to a glowing intersection or search a glowing building"
     },
     "traces": {

@@ -5,11 +5,12 @@ import {
   createGame,
   currentRole,
   getLegalActions,
+  policeSearchTargets,
   runnerMoveTargets,
   traceColorForRound,
 } from './game'
 import { applyAll, hideAt, placeAll, playRounds, searchAll } from './testUtils'
-import type { GameState } from './types'
+import type { Action, GameState } from './types'
 
 // ビル ID           交差点 ID
 //  0  1  2  3  4      0  1  2  3
@@ -288,15 +289,50 @@ describe('search', () => {
     expect(s.searchLog.at(-1)).toMatchObject({ round: 2, outcome: 'trace' })
   })
 
-  it('reports a trace again when searching an already found trace', () => {
+  it('cannot search a building whose trace has already been found', () => {
     let s = playRounds(placeAll([0, 3, 15]), [6, 7], [0, 3, 24])
     s = applyAction(s, { type: 'policeSearch', helicopter: 0, building: 6 })
     s = applyAction(s, { type: 'policeMove', helicopter: 1, intersection: 2 })
     s = applyAction(s, { type: 'policeSearch', helicopter: 2, building: 24 })
     s = applyAction(s, { type: 'runnerMove', building: 8 })
-    s = applyAction(s, { type: 'policeSearch', helicopter: 0, building: 6 })
-    expect(s.searchLog.at(-1)?.outcome).toBe('trace')
     expect(s.traces[0].found).toBe(true)
+    expect(policeSearchTargets(s, 0)).not.toContain(6)
+    expect(() => applyAction(s, { type: 'policeSearch', helicopter: 0, building: 6 })).toThrow(
+      IllegalActionError,
+    )
+  })
+
+  it('treats a helicopter that can neither search nor move as having acted', () => {
+    // ヘリコプター0 は角の交差点0（ビル 0, 1, 5, 6）。隣の交差点1・4 には他の2機
+    // 逃亡者は 0 → 1 → 6 → 5 → 10 → 15 と動き、ヘリコプター0 が 0・1・6・5 の痕跡を順に見つける
+    const idle = (h0: number): Action[] => [
+      { type: 'policeSearch', helicopter: 0, building: h0 },
+      { type: 'policeSearch', helicopter: 1, building: 2 },
+      { type: 'policeSearch', helicopter: 2, building: 11 },
+    ]
+    const move = (building: number): Action => ({ type: 'runnerMove', building })
+    const s = applyAll(placeAll([0, 1, 4]), [
+      move(0),
+      ...idle(1),
+      move(1),
+      ...idle(0),
+      move(6),
+      ...idle(1),
+      move(5),
+      ...idle(6),
+      move(10),
+      ...idle(5),
+      move(15),
+    ])
+    expect(s.traces.slice(0, 4).every((t) => t.found)).toBe(true)
+    expect(s.phase).toBe('police')
+    expect(s.actedHelicopters).toEqual([true, false, false])
+    expect(getLegalActions(s).some((a) => 'helicopter' in a && a.helicopter === 0)).toBe(false)
+    const next = applyAll(s, [
+      { type: 'policeSearch', helicopter: 1, building: 2 },
+      { type: 'policeSearch', helicopter: 2, building: 11 },
+    ])
+    expect(next.phase).toBe('runner')
   })
 
   it('finds the runner (not a trace) in the building it is in now', () => {
