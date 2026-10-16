@@ -114,6 +114,7 @@
     "back": "戻る"
   },
   "search": {
+    "searching": "ヘリコプター{{number}}がビルの中を捜索中…",
     "nothing": "ヘリコプター{{number}}の捜索: 何もなかった",
     "trace": "ヘリコプター{{number}}の捜索: 痕跡を発見！",
     "traceSpecial": "ヘリコプター{{number}}の捜索: 重要な痕跡を発見！（{{round}}番目）",

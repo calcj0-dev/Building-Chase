@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { audio, soundsForTransition } from '../../audio'
+import { SEARCH_SCAN_SEC, audio, soundsForTransition } from '../../audio'
 import {
   FINAL_SEARCH_ROUND,
   MAX_ROUNDS,
@@ -30,6 +30,8 @@ import { RoundBoard } from './RoundBoard'
 const CPU_THINK_MS = 700
 /** 決着してからリザルト画面へ移るまでの時間（ms）。逮捕などの結果を盤面で見せる */
 const RESULT_DELAY_MS = 1800
+/** 捜索でビルの中を探す演出の長さ（ms）。結果のマーク・バナー・逮捕の演出・音はその後 */
+const SEARCH_SCAN_MS = SEARCH_SCAN_SEC * 1000
 
 export function GameScreen() {
   const { t } = useTranslation()
@@ -42,20 +44,38 @@ export function GameScreen() {
   const go = useAppStore((s) => s.go)
 
   // ===== 演出 =====
+  // 直前の捜索の演出と、黄・赤の痕跡を見つけたときのバナー
+  const searchKey = game.searchLog.length
+  const lastSearch = store.lastSearch
+  // 捜索のたびに、まずビルの中を探す演出（scanning）を見せてから結果を出す
+  const [scanDoneFor, setScanDoneFor] = useState(searchKey)
+  const scanning = lastSearch !== null && scanDoneFor !== searchKey
+  useEffect(() => {
+    if (!scanning) return
+    const timer = setTimeout(() => setScanDoneFor(searchKey), SEARCH_SCAN_MS)
+    return () => clearTimeout(timer)
+  }, [scanning, searchKey])
+
   // ターン切り替えのカットイン（VS CPU のみ。2人で遊ぶでは「端末を渡す」画面が同じ役目）
+  // 「端末を渡す」画面も、捜索の演出が終わってから出す
   const turnOwner =
     humanSide === 'both' || game.phase === 'ended' ? null : isHumanTurn(store) ? 'your' : 'enemy'
   const [cutIn, setCutIn] = useState<'your' | 'enemy' | null>(null)
   const [lastOwner, setLastOwner] = useState<typeof turnOwner>(null)
-  if (turnOwner !== lastOwner) {
+  // 捜索の演出の間は、終わってから出す（手番の最後の捜索を隠さない）
+  if (turnOwner !== lastOwner && !scanning) {
     setLastOwner(turnOwner)
     setCutIn(turnOwner)
   }
   const hideCutIn = useCallback(() => setCutIn(null), [])
 
-  // 直前の捜索の演出と、黄・赤の痕跡を見つけたときのバナー
-  const searchKey = game.searchLog.length
-  const lastSearch = store.lastSearch
+  const handoffTo = scanning ? null : store.handoffTo
+
+  // 捜索の演出の間は、捜索する前の盤面を見せる（見つけた痕跡や、逮捕で公開される逃亡者を先に見せない）
+  const [history, setHistory] = useState({ game, before: game })
+  if (history.game !== game) setHistory({ game, before: history.game })
+  const shownGame = scanning ? history.before : game
+
   const foundTrace =
     lastSearch?.outcome === 'trace'
       ? game.traces.find((tr) => tr.building === lastSearch.building)
@@ -66,13 +86,15 @@ export function GameScreen() {
         building: lastSearch.building,
         outcome: lastSearch.outcome,
         traceColor: foundTrace ? traceColorForRound(foundTrace.round) : null,
+        helicopterAt: game.helicopters[lastSearch.helicopter] ?? null,
+        scanning,
       }
     : null
   const specialRound =
     foundTrace && traceColorForRound(foundTrace.round) !== 'blue' ? foundTrace.round : null
   const [bannerKey, setBannerKey] = useState<number | null>(null)
   const [shownBannerFor, setShownBannerFor] = useState(0)
-  if (specialRound !== null && shownBannerFor !== searchKey) {
+  if (specialRound !== null && !scanning && shownBannerFor !== searchKey) {
     setShownBannerFor(searchKey)
     setBannerKey(searchKey)
   }
@@ -90,8 +112,8 @@ export function GameScreen() {
     if (cutIn) audio.play(cutIn === 'your' ? 'yourTurn' : 'enemyTurn')
   }, [cutIn])
   useEffect(() => {
-    if (store.handoffTo) audio.play('yourTurn')
-  }, [store.handoffTo])
+    if (handoffTo) audio.play('yourTurn')
+  }, [handoffTo])
   const tapHelicopter = store.tapHelicopter
   const onTapHelicopter = useCallback(
     (helicopter: Parameters<typeof tapHelicopter>[0]) => {
@@ -101,28 +123,28 @@ export function GameScreen() {
     [tapHelicopter],
   )
 
-  // CPU の手番を進める。設定画面を開いている間とカットインの間は止める
+  // CPU の手番を進める。設定画面を開いている間・カットインの間・捜索の演出の間は止める
   useEffect(() => {
-    if (!cpuTurn || settingsOpen || cutIn) return
+    if (!cpuTurn || settingsOpen || cutIn || scanning) return
     const timer = setTimeout(() => useGameStore.getState().cpuStep(), CPU_THINK_MS)
     return () => clearTimeout(timer)
-  }, [cpuTurn, game, settingsOpen, cutIn])
+  }, [cpuTurn, game, settingsOpen, cutIn, scanning])
 
   // 決着したら少し間を置いてリザルト画面へ。勝敗の音はリザルト画面に移るときに鳴らす
   // （VS CPU で負けたときだけ負けの音。2人で遊ぶでは勝った側を祝う）
   const ended = game.phase === 'ended'
   const lost = (humanSide === 'runner' || humanSide === 'police') && game.winner !== humanSide
   useEffect(() => {
-    if (!ended || settingsOpen) return
+    if (!ended || settingsOpen || scanning) return
     const timer = setTimeout(() => {
       audio.play(lost ? 'defeat' : 'victory')
       go('result')
     }, RESULT_DELAY_MS)
     return () => clearTimeout(timer)
-  }, [ended, lost, settingsOpen, go])
+  }, [ended, lost, settingsOpen, scanning, go])
 
   // 人の陣営の視点で表示する（ホットシートでは手番の陣営）。決着後は全公開
-  const view = getView(game, viewRole(store))
+  const view = getView(shownGame, viewRole({ ...store, game: shownGame }))
   const turn = currentRole(game)
 
   const turnLabel =
@@ -142,15 +164,15 @@ export function GameScreen() {
         <div className="flex items-center justify-between gap-2">
           <div className="flex flex-col leading-tight">
             <span className="text-[10px] font-bold tracking-[0.2em] text-slate-400">
-              {t(`phase.${game.phase}`)}
+              {t(`phase.${shownGame.phase}`)}
             </span>
             <span className="font-mono text-xl font-extrabold tracking-wide whitespace-nowrap">
-              {game.round === 0
+              {shownGame.round === 0
                 ? t('header.setupRound')
-                : game.round >= FINAL_SEARCH_ROUND
+                : shownGame.round >= FINAL_SEARCH_ROUND
                   ? t('header.finalSearch')
                   : t('header.round', {
-                      round: String(game.round).padStart(2, '0'),
+                      round: String(shownGame.round).padStart(2, '0'),
                       max: MAX_ROUNDS,
                     })}
             </span>
@@ -180,7 +202,7 @@ export function GameScreen() {
             </button>
           </div>
         </div>
-        <RoundBoard traceCount={view.traceCount} round={game.round} />
+        <RoundBoard traceCount={view.traceCount} round={shownGame.round} />
       </header>
 
       <main className="flex min-h-0 flex-1 items-center justify-center landscape:col-start-2 landscape:row-span-2 landscape:row-start-1">
@@ -189,9 +211,9 @@ export function GameScreen() {
           className="h-full w-full landscape:w-auto landscape:max-w-[calc(100vw-260px)]"
           view={view}
           viewMode={viewMode}
-          highlightedBuildings={highlightedBuildings(store)}
-          highlightedIntersections={highlightedIntersections(store)}
-          selectableHelicopters={selectableHelicopters(store)}
+          highlightedBuildings={scanning ? [] : highlightedBuildings(store)}
+          highlightedIntersections={scanning ? [] : highlightedIntersections(store)}
+          selectableHelicopters={scanning ? [] : selectableHelicopters(store)}
           selectedHelicopter={store.selectedHelicopter}
           policeMode={store.mode}
           onTapBuilding={store.tapBuilding}
@@ -202,17 +224,15 @@ export function GameScreen() {
       </main>
 
       <footer className="bc-card flex min-h-32 flex-col items-center justify-center gap-3 rounded-2xl p-3 landscape:col-start-1 landscape:row-start-2 landscape:self-start">
-        <ControlPanel />
+        <ControlPanel searching={scanning} />
       </footer>
 
-      {store.handoffTo && (
-        <HandoffOverlay role={store.handoffTo} onDismiss={store.dismissHandoff} />
-      )}
+      {handoffTo && <HandoffOverlay role={handoffTo} onDismiss={store.dismissHandoff} />}
       {cutIn && !settingsOpen && <TurnCutIn key={cutIn} kind={cutIn} onDone={hideCutIn} />}
       {bannerKey !== null && specialRound !== null && (
         <SpecialTraceBanner key={bannerKey} round={specialRound} onDone={hideBanner} />
       )}
-      {game.endReason === 'arrested' && <ArrestOverlay />}
+      {game.endReason === 'arrested' && !scanning && <ArrestOverlay />}
     </div>
   )
 }

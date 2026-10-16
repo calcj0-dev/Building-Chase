@@ -1,5 +1,9 @@
 import { midi, type Synth } from './synth'
 
+/** 捜索でビルの中を探す時間（秒）。画面の演出も同じ長さで、結果の音はその後に鳴らす */
+export const SEARCH_SCAN_SEC = 0.9
+const R = SEARCH_SCAN_SEC
+
 /** 効果音の種類 */
 export type SoundId =
   | 'tap'
@@ -35,22 +39,24 @@ export const SOUNDS: Record<SoundId, (s: Synth) => void> = {
     s.tone({ freq: 170, to: 100, at: 0.12, dur: 0.07, wave: 'square', gain: 0.07 })
   },
 
-  // 捜索: ビルが持ち上がる「シュワッ」
+  // 捜索: サーチライトで探し回る「ウィーン…ウィーン」とスキャナーの「ピッ」
   search: (s) => {
-    s.noise({ dur: 0.35, filter: 400, to: 2400, gain: 0.18 })
-    s.tone({ freq: 330, to: 660, dur: 0.3, wave: 'sine', gain: 0.08 })
+    s.noise({ dur: 0.45, filter: 500, to: 1800, gain: 0.12 })
+    s.noise({ at: 0.45, dur: 0.45, filter: 1800, to: 500, gain: 0.12 })
+    for (const at of [0.1, 0.4, 0.7])
+      s.tone({ freq: 1500, at, dur: 0.05, wave: 'sine', gain: 0.06 })
   },
 
   // 何もなかった: 下がる2音
   nothing: (s) => {
-    s.tone({ freq: midi(69), at: 0.25, dur: 0.12, gain: 0.14 })
-    s.tone({ freq: midi(64), at: 0.37, dur: 0.18, gain: 0.14 })
+    s.tone({ freq: midi(69), at: R, dur: 0.12, gain: 0.14 })
+    s.tone({ freq: midi(64), at: R + 0.12, dur: 0.18, gain: 0.14 })
   },
 
   // 痕跡を発見: 上がる2音「ピロッ」
   trace: (s) => {
-    s.tone({ freq: midi(76), at: 0.25, dur: 0.1, wave: 'square', gain: 0.07 })
-    s.tone({ freq: midi(81), at: 0.33, dur: 0.22, wave: 'square', gain: 0.07 })
+    s.tone({ freq: midi(76), at: R, dur: 0.1, wave: 'square', gain: 0.07 })
+    s.tone({ freq: midi(81), at: R + 0.08, dur: 0.22, wave: 'square', gain: 0.07 })
   },
 
   // 重要な痕跡（黄・赤）: ドミソドの分散和音
@@ -58,7 +64,7 @@ export const SOUNDS: Record<SoundId, (s: Synth) => void> = {
     ;[72, 76, 79, 84].forEach((note, i) =>
       s.tone({
         freq: midi(note),
-        at: 0.25 + i * 0.08,
+        at: R + i * 0.08,
         dur: i === 3 ? 0.45 : 0.12,
         wave: 'square',
         gain: 0.07,
@@ -71,7 +77,7 @@ export const SOUNDS: Record<SoundId, (s: Synth) => void> = {
     for (let i = 0; i < 6; i++) {
       s.tone({
         freq: i % 2 === 0 ? 960 : 720,
-        at: 0.25 + i * 0.22,
+        at: R + i * 0.22,
         dur: 0.21,
         wave: 'square',
         gain: 0.06,

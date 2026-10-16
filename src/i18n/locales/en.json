@@ -114,6 +114,7 @@
     "back": "Back"
   },
   "search": {
+    "searching": "Helicopter {{number}} is searching the building…",
     "nothing": "Helicopter {{number}}: nothing found",
     "trace": "Helicopter {{number}}: found a trace!",
     "traceSpecial": "Helicopter {{number}}: key trace found! (#{{round}})",

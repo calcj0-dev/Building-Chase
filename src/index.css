@@ -18,6 +18,13 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* 押せる場所は指のカーソルにする（Tailwind v4 はボタンも矢印のカーソル） */
+button:not(:disabled),
+[role='button'],
+[role='radio'] {
+  cursor: pointer;
+}
+
 /* 半透明のカード */
 .bc-card {
   border: 1px solid rgb(255 255 255 / 0.08);
@@ -175,24 +182,79 @@ body {
 
 /* ===== Phase 7: 演出 ===== */
 
-/* 捜索: ビルが持ち上がって戻る */
-@keyframes bc-lift {
-  0% {
-    transform: translateY(0);
+/* 捜索: 屋上を外して見えた室内が現れる */
+@keyframes bc-scan-room {
+  from {
+    opacity: 0;
   }
-  35% {
-    transform: translateY(-16px);
-  }
-  70% {
-    transform: translateY(-16px);
-  }
-  100% {
-    transform: translateY(0);
+  to {
+    opacity: 0.92;
   }
 }
 
-.bc-lift {
-  animation: bc-lift 900ms ease-in-out;
+.bc-scan-room {
+  animation: bc-scan-room 150ms ease-out forwards;
+}
+
+/* 捜索: サーチライトの光（少し揺らぐ） */
+@keyframes bc-beam {
+  0% {
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.9;
+  }
+}
+
+.bc-beam {
+  animation: bc-beam 900ms ease-out forwards;
+}
+
+/* 捜索: 光の輪が室内の隅々を探し回る */
+@keyframes bc-scan-spot {
+  0% {
+    transform: translate(-18px, -18px);
+  }
+  25% {
+    transform: translate(18px, -16px);
+  }
+  50% {
+    transform: translate(-16px, 4px);
+  }
+  75% {
+    transform: translate(16px, 18px);
+  }
+  100% {
+    transform: translate(0, 0);
+  }
+}
+
+.bc-scan-spot {
+  animation: bc-scan-spot 900ms ease-in-out forwards;
+}
+
+/* 捜索: 虫めがねが少し傾きながら覗き込む */
+@keyframes bc-scan-lens {
+  0%,
+  100% {
+    transform: rotate(-8deg);
+  }
+  50% {
+    transform: rotate(8deg);
+  }
+}
+
+.bc-scan-lens {
+  animation: bc-scan-lens 450ms ease-in-out infinite;
 }
 
 /* 捜索結果のマークが浮かび上がって消える */
@@ -305,12 +367,15 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .bc-lift,
+  .bc-beam,
+  .bc-scan-spot,
+  .bc-scan-lens,
   .bc-ripple,
   .bc-siren-flash {
     animation: none;
   }
   .bc-badge,
+  .bc-scan-room,
   .bc-cutin,
   .bc-banner {
     animation-duration: 1ms;

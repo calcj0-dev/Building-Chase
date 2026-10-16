@@ -14,8 +14,8 @@ import {
 } from '../../store/gameStore'
 import { BackIcon, MoveIcon, SearchIcon } from '../icons'
 
-/** 手順の案内、警察の行動ボタン、直前の捜索結果 */
-export function ControlPanel() {
+/** 手順の案内、警察の行動ボタン、直前の捜索結果（searching の間は「捜索中」と出し、結果はまだ見せない） */
+export function ControlPanel({ searching }: { searching: boolean }) {
   const { t } = useTranslation()
   const game = useGameStore((s) => s.game)
   const selectedHelicopter = useGameStore((s) => s.selectedHelicopter)
@@ -31,7 +31,15 @@ export function ControlPanel() {
 
   return (
     <div className="flex w-full flex-col items-center gap-3">
-      {lastSearch && <SearchToast key={game.searchLog.length} game={game} search={lastSearch} />}
+      {lastSearch &&
+        (searching ? (
+          <p className="flex items-center gap-2 rounded-full border border-amber-300/50 bg-slate-800/90 px-4 py-1.5 text-sm font-bold text-amber-100">
+            <SearchIcon />
+            {t('search.searching', { number: lastSearch.helicopter + 1 })}
+          </p>
+        ) : (
+          <SearchToast key={game.searchLog.length} game={game} search={lastSearch} />
+        ))}
       {instruction && (
         <p className="text-center text-sm font-medium text-slate-200">{instruction}</p>
       )}

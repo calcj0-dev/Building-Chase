@@ -49,7 +49,7 @@ interface BoardProps {
   onTapHelicopter(helicopter: HelicopterIndex): void
   /** 盤面の大きさの指定（画面ごとに高さの上限を変える） */
   className?: string
-  /** 直前の捜索の演出（ビルが持ち上がり、結果のマークが浮かぶ）。key が変わるたびに再生する */
+  /** 直前の捜索の演出（サーチライトでビルの中を探し、結果のマークが浮かぶ）。key が変わるたびに再生する */
   searchEffect?: SearchEffect | null
 }
 
@@ -59,6 +59,10 @@ export interface SearchEffect {
   outcome: SearchOutcome
   /** 痕跡が見つかったときの色 */
   traceColor: TraceColor | null
+  /** 捜索したヘリコプターのいる交差点（サーチライトの光の出どころ） */
+  helicopterAt: IntersectionId | null
+  /** true の間はビルの中を探している最中（結果はまだ見せない） */
+  scanning: boolean
 }
 
 export function Board({
@@ -101,6 +105,16 @@ export function Board({
           <stop offset="0" stopColor="#e0f2fe" />
           <stop offset="1" stopColor="#7dd3fc" />
         </linearGradient>
+        {/* サーチライト: ヘリコプター側が明るく、ビルに向かって薄くなる光 */}
+        <linearGradient id="bc-beam" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#fef9c3" stopOpacity={0.75} />
+          <stop offset="1" stopColor="#fde68a" stopOpacity={0.15} />
+        </linearGradient>
+        <radialGradient id="bc-spot">
+          <stop offset="0" stopColor="#fefce8" stopOpacity={1} />
+          <stop offset="0.5" stopColor="#fde68a" stopOpacity={0.7} />
+          <stop offset="1" stopColor="#fde68a" stopOpacity={0} />
+        </radialGradient>
       </defs>
 
       <Ground mode={mode} />
@@ -124,12 +138,10 @@ export function Board({
 
       {ALL_BUILDINGS.map((id) => (
         <Building
-          // 捜索されたビルは key を変えて、持ち上がるアニメーションを毎回最初から再生する
-          key={`b${id}-${searchEffect?.building === id ? searchEffect.key : 0}`}
+          key={`b${id}`}
           mode={mode}
           id={id}
           highlighted={highlightedBuildings.includes(id)}
-          lifting={searchEffect?.building === id}
           onTap={onTapBuilding}
         />
       ))}
@@ -159,9 +171,12 @@ export function Board({
         />
       )}
       {showRoute && <RouteNumbers mode={mode} traces={view.traces} />}
-      {searchEffect && (
-        <SearchResultMark key={searchEffect.key} mode={mode} effect={searchEffect} />
-      )}
+      {searchEffect &&
+        (searchEffect.scanning ? (
+          <SearchBeam key={`beam${searchEffect.key}`} mode={mode} effect={searchEffect} />
+        ) : (
+          <SearchResultMark key={searchEffect.key} mode={mode} effect={searchEffect} />
+        ))}
 
       {view.helicopters.map((at, i) => {
         if (at === null) return null
@@ -180,6 +195,10 @@ export function Board({
           />
         )
       })}
+
+      {searchEffect?.scanning && (
+        <SearchScan key={`scan${searchEffect.key}`} mode={mode} effect={searchEffect} />
+      )}
 
       {/* 選べる交差点は最前面に表示し、ヘリコプターの下でもタップできるようにする */}
       {ALL_INTERSECTIONS.filter((id) => highlightedIntersections.includes(id)).map((id) => {
@@ -295,13 +314,11 @@ function Building({
   mode,
   id,
   highlighted,
-  lifting,
   onTap,
 }: {
   mode: ViewMode
   id: BuildingId
   highlighted: boolean
-  lifting: boolean
   onTap(id: BuildingId): void
 }) {
   const { x0, y0, y1, h } = buildingBox(id)
@@ -318,7 +335,7 @@ function Building({
       data-building={id}
       data-highlighted={highlighted || undefined}
       onClick={highlighted ? () => onTap(id) : undefined}
-      className={`${highlighted ? 'cursor-pointer' : ''} ${lifting ? 'bc-lift' : ''}`}
+      className={highlighted ? 'cursor-pointer' : undefined}
     >
       {wallHeight > 0 && (
         <FrontWall id={id} x={x0} y={roofBottomY} height={wallHeight} color={colors.wall} />
@@ -676,6 +693,93 @@ function Helicopter({
               fill="transparent"
             />
           )}
+        </g>
+      </g>
+    </g>
+  )
+}
+
+/** 捜索中のサーチライトの光（ヘリコプターの真下から屋上全体へ広がる）。ヘリコプターより下に描く */
+function SearchBeam({ mode, effect }: { mode: ViewMode; effect: SearchEffect }) {
+  if (effect.helicopterAt === null) return null
+  const from = intersectionGround(mode, effect.helicopterAt)
+  const center = roofCenter(mode, effect.building)
+  const half = FOOTPRINT / 2
+  return (
+    <polygon
+      className="bc-beam"
+      pointerEvents="none"
+      points={points([
+        { x: from.x - 6, y: from.y - HELI_LIFT + 12 },
+        { x: from.x + 6, y: from.y - HELI_LIFT + 12 },
+        { x: center.x + half, y: center.y },
+        { x: center.x - half, y: center.y },
+      ])}
+      fill="url(#bc-beam)"
+    />
+  )
+}
+
+/**
+ * 捜索中の演出: 屋上を外して見えた暗い室内を、虫めがねと光の輪が探し回る。
+ * ヘリコプターに隠れないよう、ヘリコプターより上に描く
+ */
+function SearchScan({ mode, effect }: { mode: ViewMode; effect: SearchEffect }) {
+  const { x0, y0, h } = buildingBox(effect.building)
+  const roofTop = project(mode, x0, y0, h)
+  const sy = groundScaleY(mode)
+  const center = roofCenter(mode, effect.building)
+  const inset = 3
+  const inner = FOOTPRINT - inset * 2
+  return (
+    <g pointerEvents="none">
+      <clipPath id="bc-scan-clip">
+        <rect
+          x={roofTop.x + inset}
+          y={roofTop.y + inset * sy}
+          width={inner}
+          height={inner * sy}
+          rx={3}
+        />
+      </clipPath>
+      {/* 屋上を外して見えた暗い室内（各階の床の線） */}
+      <g
+        className="bc-scan-room"
+        transform={`translate(${roofTop.x}, ${roofTop.y}) scale(1, ${sy})`}
+      >
+        <rect
+          x={inset}
+          y={inset}
+          width={inner}
+          height={inner}
+          rx={3}
+          fill="#020617"
+          stroke="#fde68a"
+          strokeWidth={3}
+        />
+        {[0.3, 0.55, 0.8].map((f) => (
+          <rect
+            key={f}
+            x={inset + (inner * (1 - f)) / 2}
+            y={inset + (inner * (1 - f)) / 2}
+            width={inner * f}
+            height={inner * f}
+            fill="none"
+            stroke="#334155"
+            strokeWidth={1.5}
+          />
+        ))}
+      </g>
+      {/* 室内を照らす光の輪と、それを覗く虫めがね（一緒に動く） */}
+      <g transform={`translate(${center.x}, ${center.y})`}>
+        <g className="bc-scan-spot">
+          <circle r={18} fill="url(#bc-spot)" clipPath="url(#bc-scan-clip)" />
+          <g className="bc-scan-lens">
+            <path d="M 15 15 L 30 30" stroke="#0f172a" strokeWidth={10} strokeLinecap="round" />
+            <path d="M 15 15 L 30 30" stroke="#f8fafc" strokeWidth={6} strokeLinecap="round" />
+            <circle r={19} fill="none" stroke="#0f172a" strokeWidth={8} />
+            <circle r={19} fill="none" stroke="#f8fafc" strokeWidth={4.5} />
+          </g>
         </g>
       </g>
     </g>
