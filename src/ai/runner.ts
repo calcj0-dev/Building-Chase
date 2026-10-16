@@ -3,7 +3,6 @@ import {
   BUILDINGS_AROUND_INTERSECTION,
   INTERSECTION_NEIGHBORS,
   INTERSECTIONS_AROUND_BUILDING,
-  MAX_ROUNDS,
   getView,
   runnerMoveTargets,
   type Action,
@@ -35,9 +34,9 @@ export const DEFAULT_RUNNER_WEIGHTS: RunnerWeights = {
 /**
  * CPU逃亡者の移動先を選ぶ。逃亡者は全情報を見られるので GameState を受け取る。
  * - ヘリコプターが今すぐ捜索できるビル（特に警察から見て「いそう」なビル）を避ける
- * - 最終ラウンドまで動き続けられない（包囲される）ビルを避ける
  * - 移動先の選択肢が多いビルを好む
- * 普通（normal）の逃亡者は、ときどき危険を読まずに適当に移動する（行き止まりは避ける）。
+ * 行き止まり（最終ラウンドまで動き続けられないビル）は、ルール上はじめから選べない（runnerMoveTargets）。
+ * 普通（normal）の逃亡者は、ときどき危険を読まずに適当に移動する。
  */
 export function chooseRunnerAction(
   state: GameState,
@@ -50,7 +49,7 @@ export function chooseRunnerAction(
   }
   const targets = runnerMoveTargets(state)
   if (level === 'normal' && rng() < NORMAL_RUNNER_MISTAKE_RATE) {
-    return { type: 'runnerMove', building: randomSafeTarget(state, targets, rng) }
+    return { type: 'runnerMove', building: targets[Math.floor(rng() * targets.length)] }
   }
 
   // この行動の後に警察が持つ推理（移動先によらず共通）。スタート地点を選ぶときは痕跡が増えない
@@ -61,9 +60,6 @@ export function chooseRunnerAction(
   // 痕跡のあるビルと、これから離れるビル（移動すると痕跡が残る）には戻れない
   const visited = new Set(state.traces.map((t) => t.building))
   if (state.runnerPosition !== null) visited.add(state.runnerPosition)
-  // この行動の後に残っている移動の回数（スタート地点を選ぶときは Round 1〜11 の 11 回）
-  const movesLeftAfter = MAX_ROUNDS - state.round
-
   // ヘリコプターが今いる交差点と、1手で移動できる交差点（次ラウンドに捜索できる位置）
   const helicopterSpots = state.helicopters.filter((c): c is number => c !== null)
   const reachableSpots = new Set(helicopterSpots.flatMap((c) => [c, ...INTERSECTION_NEIGHBORS[c]]))
@@ -81,7 +77,6 @@ export function chooseRunnerAction(
       INTERSECTIONS_AROUND_BUILDING[b].filter((i) => reachableSpots.has(i)).length /
       INTERSECTIONS_AROUND_BUILDING[b].length
     const blocked = new Set(visited).add(b)
-    const survives = canKeepMoving(b, blocked, movesLeftAfter)
     const mobility = reachableCount(b, blocked) / 25
 
     return (
@@ -89,37 +84,12 @@ export function chooseRunnerAction(
       weights.nextRound * nextRoundExposure -
       belief.here[b] +
       mobility +
-      (survives ? 0 : -100) +
       rng() * weights.randomness
     )
   }
 
   const building = pickBest(targets, score, rng)
   return { type: 'runnerMove', building }
-}
-
-/** 最後まで動き続けられるビルから1つ選ぶ（なければ移動先のどれか） */
-function randomSafeTarget(state: GameState, targets: BuildingId[], rng: Rng): BuildingId {
-  const visited = new Set(state.traces.map((t) => t.building))
-  if (state.runnerPosition !== null) visited.add(state.runnerPosition)
-  const safe = targets.filter((b) =>
-    canKeepMoving(b, new Set(visited).add(b), MAX_ROUNDS - state.round),
-  )
-  const pool = safe.length > 0 ? safe : targets
-  return pool[Math.floor(rng() * pool.length)]
-}
-
-/** from から、blocked を通らずに moves 回移動し続けられるか */
-export function canKeepMoving(from: BuildingId, blocked: Set<BuildingId>, moves: number): boolean {
-  if (moves <= 0) return true
-  for (const n of BUILDING_NEIGHBORS[from]) {
-    if (blocked.has(n)) continue
-    blocked.add(n)
-    const ok = canKeepMoving(n, blocked, moves - 1)
-    blocked.delete(n)
-    if (ok) return true
-  }
-  return false
 }
 
 function reachableCount(from: BuildingId, blocked: Set<BuildingId>): number {

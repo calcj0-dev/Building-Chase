@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { applyAction, createGame, type GameState } from '../core'
-import { hideAt, placeAll, playRounds, searchAll } from '../core/testUtils'
+import { hideAt, placeAll, searchAll } from '../core/testUtils'
 import { createSynthEngine } from './engine'
 import { soundsForTransition } from './gameSounds'
 
@@ -10,8 +10,6 @@ import { soundsForTransition } from './gameSounds'
 // 10 11 12 13 14      8  9 10 11
 // 15 16 17 18 19     12 13 14 15
 // 20 21 22 23 24
-
-const IDLE_SEARCHES: [number, number, number] = [24, 20, 4]
 
 /** ヘリコプター: 交差点5（ビル 6, 7, 11, 12）/ 6（7, 8, 12, 13）/ 10（12, 13, 17, 18）。逃亡者は 12 に隠れる */
 const hidden = () => hideAt(placeAll([5, 6, 10]), 12)
@@ -66,15 +64,15 @@ describe('soundsForTransition', () => {
   })
 
   it('plays the arrest sound when the runner is surrounded', () => {
-    // 5 に隠れて 6 → 1 → 0 と動くと、ビル0の隣（1, 5）はどちらも痕跡あり
-    let s = playRounds(placeAll([15, 12, 3]), [5, 6, 1, 0], IDLE_SEARCHES)
-    s = applyAction(s, { type: 'policeSearch', helicopter: 0, building: 24 })
-    s = applyAction(s, { type: 'policeSearch', helicopter: 1, building: 20 })
-    expect(soundsOf(s, { type: 'policeSearch', helicopter: 2, building: 4 })).toEqual([
-      'search',
-      'nothing',
-      'arrest',
-    ])
+    // 行き止まりには入れないルールなので、通常は起きない。決着の状態を直接作って確かめる
+    const s = searchAll(hidden(), [6, 8, 18])
+    const surrounded: GameState = {
+      ...s,
+      phase: 'ended',
+      winner: 'police',
+      endReason: 'surrounded',
+    }
+    expect(soundsForTransition(s, surrounded)).toEqual(['arrest'])
   })
 
   it('stays silent when a new game starts', () => {

@@ -393,15 +393,38 @@ describe('game end', () => {
     expect(s.endReason).toBe('arrested')
   })
 
-  it('declares the runner surrounded when no move is possible', () => {
-    // 5 に隠れて 6 → 1 → 0 と動くと、ビル0の隣（1, 5）はどちらも痕跡あり
-    let s = playRounds(hidePhase(), [5, 6, 1, 0], IDLE_SEARCHES)
-    expect(s.phase).toBe('police') // Round 4 の警察はまだ行動できる
+  it('never lets the runner walk into a dead end', () => {
+    // 5 に隠れて 6 → 1 と動いた後、0 に入ると隣（1, 5）がどちらも痕跡で動けなくなる
+    let s = playRounds(hidePhase(), [5, 6, 1], IDLE_SEARCHES)
     s = searchAll(s, IDLE_SEARCHES)
-    expect(s.phase).toBe('ended')
-    expect(s.winner).toBe('police')
-    expect(s.endReason).toBe('surrounded')
-    expect(s.round).toBe(4)
+    expect(s.phase).toBe('runner')
+    expect(runnerMoveTargets(s)).toEqual([2])
+    expect(() => applyAction(s, { type: 'runnerMove', building: 0 })).toThrow(IllegalActionError)
+  })
+
+  it('offers every free neighbor on the last move, since no more moves are needed', () => {
+    // 5 に隠れて10回動き、15 にいる。11回目（最後）の移動の後は最後の捜索だけなので、
+    // その先に動けるかは問わない（隣の 10 は痕跡あり、16 と 20 は選べる）
+    const path = [5, 6, 7, 8, 9, 14, 13, 12, 11, 10, 15]
+    let s = playRounds(hidePhase(), path, IDLE_SEARCHES)
+    s = searchAll(s, IDLE_SEARCHES)
+    expect(s.round).toBe(11)
+    expect(runnerMoveTargets(s).sort((a, b) => a - b)).toEqual([16, 20])
+  })
+
+  it('never ends in a surround, even with random legal moves', () => {
+    for (let seed = 1; seed <= 20; seed++) {
+      let s = createGame()
+      const rng = (() => {
+        let a = seed
+        return () => (a = (a * 16807) % 2147483647) / 2147483647
+      })()
+      while (s.phase !== 'ended') {
+        const actions = getLegalActions(s)
+        s = applyAction(s, actions[Math.floor(rng() * actions.length)])
+      }
+      expect(s.endReason).not.toBe('surrounded')
+    }
   })
 })
 

@@ -46,7 +46,7 @@
     },
     "runner": {
       "heading": "The Runner",
-      "body": "Each round, move to a building directly above, below, left or right (no diagonals). Moving leaves a trace in the building you left, and you can never re-enter a building with a trace. If you have nowhere to go, you are caught (surrounded).",
+      "body": "Each round, move to a building directly above, below, left or right (no diagonals). Moving leaves a trace in the building you left, and you can never re-enter a building with a trace. You cannot enter a dead end: a building from which you could not keep moving until the end.",
       "diagram": "Diagram: the glowing buildings are where the runner can move next. Buildings with a trace are off-limits"
     },
     "police": {

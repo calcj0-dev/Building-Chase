@@ -1,4 +1,11 @@
-import { BUILDING_COUNT, BUILDING_NEIGHBORS, type BuildingId, type GameView } from '../core'
+import {
+  BUILDING_COUNT,
+  BUILDING_NEIGHBORS,
+  MAX_ROUNDS,
+  canKeepMoving,
+  type BuildingId,
+  type GameView,
+} from '../core'
 
 /** 警察が知っている情報だけから推定した、逃亡者の居場所の分布 */
 export interface RunnerBelief {
@@ -25,6 +32,8 @@ const NO_LIMIT = -1
  * 各ラウンドは 警察 → 逃亡者 の順なので、Round r の捜索は逃亡者が r-1 回移動した時点で行われる。
  * - 「何もない」捜索（ラウンド r, ビル b）: p0〜p(r-1) のどれも b ではない
  * - 発見した痕跡: 黄（1番目）なら p0、赤（6番目）なら p5、青なら発見時点より前のそれ以外の位置
+ * - 逃亡者は行き止まりに入れない: 今いるビルから、残りの回数だけ動き続けられる
+ *   （これが成り立てば、途中の各移動でも行き止まりに入っていない）
  */
 export function inferRunner(knowledge: PoliceKnowledge): RunnerBelief {
   const n = knowledge.traceCount
@@ -76,10 +85,14 @@ export function inferRunner(knowledge: PoliceKnowledge): RunnerBelief {
     return true
   }
 
+  const blockedOnPath = new Set<BuildingId>()
   const record = () => {
     if (blueBuildings.some((b) => !onPath[b])) return
-    pathCount++
     const end = path[path.length - 1]
+    blockedOnPath.clear()
+    for (const b of path) blockedOnPath.add(b)
+    if (!canKeepMoving(end, blockedOnPath, MAX_ROUNDS - n)) return
+    pathCount++
     here[end]++
     for (let i = 0; i < path.length - 1; i++) visited[path[i]]++
     const moves = BUILDING_NEIGHBORS[end].filter((m) => !onPath[m])

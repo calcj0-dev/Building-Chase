@@ -6,6 +6,7 @@ import {
   INTERSECTION_NEIGHBORS,
   FINAL_SEARCH_ROUND,
   HELICOPTER_COUNT,
+  MAX_ROUNDS,
   type BuildingId,
   type IntersectionId,
 } from './board'
@@ -55,12 +56,41 @@ export function currentRole(state: GameState): Role | null {
   }
 }
 
-/** 逃亡者が今選べるビル（スタート地点は全ビル、以降は縦横に隣接し痕跡のないビル） */
+/**
+ * 逃亡者が今選べるビル（スタート地点は全ビル、以降は縦横に隣接し痕跡のないビル）。
+ * ただし、入ると最後のラウンドまで動き続けられないビル（行き止まり）は選べない。
+ * 毎回この中から選ぶので、逃亡者が動けなくなる（包囲される）ことはない
+ */
 export function runnerMoveTargets(state: GameState): BuildingId[] {
-  if (state.phase === 'hide') return [...ALL_BUILDINGS]
-  if (state.phase !== 'runner' || state.runnerPosition === null) return []
+  let candidates: BuildingId[]
+  // 痕跡のあるビルと、これから離れるビル（移動すると痕跡が残る）には戻れない
   const visited = new Set(state.traces.map((t) => t.building))
-  return BUILDING_NEIGHBORS[state.runnerPosition].filter((b) => !visited.has(b))
+  if (state.phase === 'hide') {
+    candidates = [...ALL_BUILDINGS]
+  } else if (state.phase === 'runner' && state.runnerPosition !== null) {
+    candidates = BUILDING_NEIGHBORS[state.runnerPosition].filter((b) => !visited.has(b))
+    visited.add(state.runnerPosition)
+  } else {
+    return []
+  }
+  // この移動の後に残っている移動の回数（スタート地点を選ぶときは Round 1〜11 の 11 回）
+  const movesLeftAfter = MAX_ROUNDS - state.round
+  const safe = candidates.filter((b) => canKeepMoving(b, new Set(visited).add(b), movesLeftAfter))
+  // 念のため: 行き止まりしかないときは（このルールの下では起きない）、そのまま選ばせる
+  return safe.length > 0 ? safe : candidates
+}
+
+/** from から、blocked を通らずに moves 回移動し続けられるか（blocked は調べる間だけ書き換えて戻す） */
+export function canKeepMoving(from: BuildingId, blocked: Set<BuildingId>, moves: number): boolean {
+  if (moves <= 0) return true
+  for (const n of BUILDING_NEIGHBORS[from]) {
+    if (blocked.has(n)) continue
+    blocked.add(n)
+    const ok = canKeepMoving(n, blocked, moves - 1)
+    blocked.delete(n)
+    if (ok) return true
+  }
+  return false
 }
 
 /** 配置フェーズで、そのヘリコプターを置ける交差点 */

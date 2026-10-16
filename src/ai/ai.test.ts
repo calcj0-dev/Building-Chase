@@ -6,6 +6,7 @@ import {
   getLegalActions,
   getView,
   policeSearchTargets,
+  canKeepMoving,
   type Action,
   type GameState,
   type Role,
@@ -20,7 +21,6 @@ import {
   seededRng,
   type CpuLevel,
 } from '.'
-import { canKeepMoving } from './runner'
 
 // ビル ID           交差点 ID
 //  0  1  2  3  4      0  1  2  3
