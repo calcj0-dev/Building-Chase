@@ -161,7 +161,7 @@ export function GameScreen() {
     // 横長の画面（PC・スマホ横向き）: 左にヘッダーと操作パネル / 右に盤面
     <div className="relative mx-auto flex h-dvh max-w-xl flex-col gap-2 px-3 pt-[max(12px,env(safe-area-inset-top))] pb-[max(12px,env(safe-area-inset-bottom))] landscape:grid landscape:max-w-6xl landscape:grid-cols-[minmax(240px,1fr)_auto] landscape:grid-rows-[auto_1fr] landscape:gap-x-3 landscape:px-[max(8px,env(safe-area-inset-left))] landscape:py-2">
       <header className="bc-card flex flex-col gap-3 rounded-2xl p-3 landscape:col-start-1 landscape:row-start-1">
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-col leading-tight">
             <span className="text-[10px] font-bold tracking-[0.2em] text-slate-400">
               {t(`phase.${shownGame.phase}`)}

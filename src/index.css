@@ -201,22 +201,25 @@ button:not(:disabled),
   0% {
     opacity: 0;
   }
-  15% {
+  8% {
     opacity: 1;
+  }
+  30% {
+    opacity: 0.75;
   }
   50% {
-    opacity: 0.8;
-  }
-  85% {
     opacity: 1;
   }
+  70% {
+    opacity: 0.75;
+  }
   100% {
-    opacity: 0.9;
+    opacity: 1;
   }
 }
 
 .bc-beam {
-  animation: bc-beam 900ms ease-out forwards;
+  animation: bc-beam 2000ms ease-out forwards;
 }
 
 /* 捜索: 光の輪が室内の隅々を探し回る */
@@ -224,14 +227,23 @@ button:not(:disabled),
   0% {
     transform: translate(-18px, -18px);
   }
-  25% {
-    transform: translate(18px, -16px);
+  14% {
+    transform: translate(18px, -18px);
   }
-  50% {
-    transform: translate(-16px, 4px);
+  28% {
+    transform: translate(0, -6px);
   }
-  75% {
-    transform: translate(16px, 18px);
+  42% {
+    transform: translate(-18px, 4px);
+  }
+  56% {
+    transform: translate(18px, 2px);
+  }
+  70% {
+    transform: translate(-16px, 18px);
+  }
+  85% {
+    transform: translate(18px, 18px);
   }
   100% {
     transform: translate(0, 0);
@@ -239,7 +251,7 @@ button:not(:disabled),
 }
 
 .bc-scan-spot {
-  animation: bc-scan-spot 900ms ease-in-out forwards;
+  animation: bc-scan-spot 2000ms ease-in-out forwards;
 }
 
 /* 捜索: 虫めがねが少し傾きながら覗き込む */

@@ -3,8 +3,8 @@ import { createJSONStorage, persist } from 'zustand/middleware'
 import { CPU_LEVELS, type CpuLevel } from '../ai'
 import { storage } from '../storage'
 
-/** 盤面の視点。top: 真上から / tilt: 正面から浅く傾ける */
-export type ViewMode = 'top' | 'tilt'
+/** 盤面の視点。front: 正面から浅く傾ける / angle: そこから右へ回り込む */
+export type ViewMode = 'front' | 'angle'
 
 export const LANGUAGES = ['ja', 'en'] as const
 export type Language = (typeof LANGUAGES)[number]
@@ -29,7 +29,7 @@ export const useSettingsStore = create<SettingsState>()(
   persist(
     (set) => ({
       language: 'ja',
-      viewMode: 'top',
+      viewMode: 'front',
       cpuLevel: 'normal',
       bgm: true,
       se: true,
@@ -55,7 +55,8 @@ export const useSettingsStore = create<SettingsState>()(
         return {
           ...current,
           language: LANGUAGES.includes(s.language as Language) ? (s.language as Language) : 'ja',
-          viewMode: s.viewMode === 'tilt' ? 'tilt' : 'top',
+          // 以前の視点（真上 top / 斜め tilt）は、どちらも正面として読む
+          viewMode: s.viewMode === 'angle' ? 'angle' : 'front',
           cpuLevel: CPU_LEVELS.includes(s.cpuLevel as CpuLevel)
             ? (s.cpuLevel as CpuLevel)
             : 'normal',

@@ -1,5 +1,4 @@
 import {
-  ALL_BUILDINGS,
   ALL_INTERSECTIONS,
   type BuildingId,
   type GameView,
@@ -16,24 +15,27 @@ import {
   FOOTPRINT,
   HELI_LIFT,
   HELI_SCALE,
-  SHADOW_PER_HEIGHT,
   SLAB,
+  TILT_HEIGHT,
   WORLD_SIZE,
   buildingBox,
-  groundScaleY,
+  buildingsBackToFront,
   intersectionGround,
+  intersectionWorld,
   isLargeBuilding,
+  planeMatrix,
   points,
   project,
   roofCenter,
+  showsRightWall,
   viewBox,
-  wallScale,
+  wallMatrix,
   windowLit,
 } from './geometry'
 
 interface BoardProps {
   view: GameView
-  /** 盤面の視点（真上 / 正面から浅く傾ける） */
+  /** 盤面の視点（正面 / 右へ回り込んだ斜め） */
   viewMode: ViewMode
   highlightedBuildings: BuildingId[]
   highlightedIntersections: IntersectionId[]
@@ -119,8 +121,7 @@ export function Board({
 
       <Ground mode={mode} />
 
-      {/* ビルとヘリコプターの影（地面に落ちる）。真上の視点ではビルの高さを影で表す */}
-      {mode === 'top' && ALL_BUILDINGS.map((id) => <BuildingShadow key={`bs${id}`} id={id} />)}
+      {/* ヘリコプターの影（地面に落ちる） */}
       {view.helicopters.map((at, i) => {
         if (at === null) return null
         const g = intersectionGround(mode, at)
@@ -136,7 +137,7 @@ export function Board({
         )
       })}
 
-      {ALL_BUILDINGS.map((id) => (
+      {buildingsBackToFront(mode).map((id) => (
         <Building
           key={`b${id}`}
           mode={mode}
@@ -146,7 +147,7 @@ export function Board({
         />
       ))}
 
-      {ALL_BUILDINGS.map((id) => (
+      {buildingsBackToFront(mode).map((id) => (
         <RoofItems
           key={`r${id}`}
           mode={mode}
@@ -232,22 +233,19 @@ export function Board({
   )
 }
 
-/** 地面: 土台、道路の中央線、交差点 */
+/** 地面: 土台、道路の中央線、交差点。地面の上はワールド座標のまま matrix で描く */
 function Ground({ mode }: { mode: ViewMode }) {
   const lanes = [1, 2, 3, 4]
-  const sy = groundScaleY(mode)
+  const ground = planeMatrix(mode, { x: 0, y: 0, z: 0 }, { x: 1, y: 0 }, { x: 0, y: 1 })
   return (
     <g pointerEvents="none">
-      {/* 土台の厚み（手前側） */}
-      <rect
-        x={0}
-        y={WORLD_SIZE * sy - 8}
-        width={WORLD_SIZE}
-        height={SLAB + 8}
-        rx={10}
-        fill="#0b1220"
-      />
-      <g transform={`scale(1, ${sy})`}>
+      {/* 土台の厚み（地面を真下へずらして重ねる） */}
+      <g transform={`translate(0, ${SLAB})`}>
+        <g transform={ground}>
+          <rect width={WORLD_SIZE} height={WORLD_SIZE} rx={10} fill="#0b1220" />
+        </g>
+      </g>
+      <g transform={ground}>
         {/* 道路（アスファルト） */}
         <rect
           width={WORLD_SIZE}
@@ -263,13 +261,11 @@ function Ground({ mode }: { mode: ViewMode }) {
             <line x1={0} y1={k * CELL} x2={WORLD_SIZE} y2={k * CELL} />
           </g>
         ))}
+        {ALL_INTERSECTIONS.map((id) => {
+          const w = intersectionWorld(id)
+          return <circle key={id} cx={w.x} cy={w.y} r={7} fill="#94a3b8" opacity={0.8} />
+        })}
       </g>
-      {ALL_INTERSECTIONS.map((id) => {
-        const g = intersectionGround(mode, id)
-        return (
-          <ellipse key={id} cx={g.x} cy={g.y} rx={7} ry={7 * sy} fill="#94a3b8" opacity={0.8} />
-        )
-      })}
     </g>
   )
 }
@@ -291,25 +287,13 @@ const BUILDING_COLORS = {
   },
 }
 
-/** 高いビルほど長い影を右下に落とす */
-function BuildingShadow({ id }: { id: BuildingId }) {
-  const { x0, y0, h } = buildingBox(id)
-  const d = h * SHADOW_PER_HEIGHT
-  return (
-    <rect
-      x={x0 + d * 0.4}
-      y={y0 + d * 0.4}
-      width={FOOTPRINT + d * 0.6}
-      height={FOOTPRINT + d * 0.6}
-      rx={6}
-      fill="#020617"
-      opacity={0.5}
-      pointerEvents="none"
-    />
-  )
-}
+/** 右側の壁を手前の壁より暗くする（光は左上から） */
+const RIGHT_WALL_SHADE = 0.7
 
-/** ビル: 屋上（どちらの視点でも）と、傾けた視点では手前の壁 */
+/**
+ * ビル: 屋上と、手前の壁（斜めの視点では右側の壁も）。
+ * 屋上の中は 0〜FOOTPRINT のローカル座標で描き、matrix で画面へ移す
+ */
 function Building({
   mode,
   id,
@@ -321,15 +305,14 @@ function Building({
   highlighted: boolean
   onTap(id: BuildingId): void
 }) {
-  const { x0, y0, y1, h } = buildingBox(id)
+  const { x0, x1, y0, y1, h } = buildingBox(id)
   const large = isLargeBuilding(id)
   const colors = large ? BUILDING_COLORS.large : BUILDING_COLORS.small
   const inset = 6
-  // 屋上は「左上の位置 + 縦の縮み」で描く（屋上の中は 0〜FOOTPRINT のローカル座標）
-  const roofTop = project(mode, x0, y0, h)
-  const sy = groundScaleY(mode)
-  const roofBottomY = project(mode, x0, y1, h).y
-  const wallHeight = h * wallScale(mode)
+  const roof = planeMatrix(mode, { x: x0, y: y0, z: h }, { x: 1, y: 0 }, { x: 0, y: 1 })
+  const wallHeight = h * TILT_HEIGHT
+  const frontWall = wallMatrix(mode, { x: x0, y: y1, z: h }, { x: 1, y: 0 })
+  const rightWall = wallMatrix(mode, { x: x1, y: y1, z: h }, { x: 0, y: -1 })
   return (
     <g
       data-building={id}
@@ -337,10 +320,17 @@ function Building({
       onClick={highlighted ? () => onTap(id) : undefined}
       className={highlighted ? 'cursor-pointer' : undefined}
     >
-      {wallHeight > 0 && (
-        <FrontWall id={id} x={x0} y={roofBottomY} height={wallHeight} color={colors.wall} />
+      {showsRightWall(mode) && (
+        <g transform={rightWall}>
+          <Wall id={id} height={wallHeight} color={colors.wall} shade={RIGHT_WALL_SHADE} />
+          {highlighted && <WallGlow height={wallHeight} />}
+        </g>
       )}
-      <g transform={`translate(${roofTop.x}, ${roofTop.y}) scale(1, ${sy})`}>
+      <g transform={frontWall}>
+        <Wall id={id} height={wallHeight} color={colors.wall} shade={1} />
+        {highlighted && <WallGlow height={wallHeight} />}
+      </g>
+      <g transform={roof}>
         {/* 屋上の外周（パラペット）と内側の床 */}
         <rect
           x={0}
@@ -395,41 +385,28 @@ function Building({
           />
         )}
       </g>
-      {highlighted && wallHeight > 0 && (
-        <rect
-          className="bc-glow"
-          pointerEvents="none"
-          x={x0}
-          y={roofBottomY}
-          width={FOOTPRINT}
-          height={wallHeight}
-          fill="#fde68a"
-          fillOpacity={0.25}
-        />
-      )}
     </g>
   )
 }
 
-/** 傾けた視点で見えるビルの手前の壁（窓明かり付き） */
-function FrontWall({
+/** ビルの壁（窓明かり付き）。壁のローカル座標: 横 0〜FOOTPRINT、縦 0〜height（上端から下へ） */
+function Wall({
   id,
-  x,
-  y,
   height,
   color,
+  shade,
 }: {
   id: BuildingId
-  x: number
-  y: number
   height: number
   color: string
+  /** 1 で手前の壁の明るさ。小さいほど暗い */
+  shade: number
 }) {
   const floors = Math.max(1, Math.floor(height / 7))
   const cols = [8, 22, 36, 50]
   return (
     <g>
-      <rect x={x} y={y} width={FOOTPRINT} height={height} fill={color} />
+      <rect width={FOOTPRINT} height={height} fill={color} />
       <g pointerEvents="none">
         {Array.from({ length: floors }, (_, f) =>
           cols.map((u, k) => {
@@ -437,8 +414,8 @@ function FrontWall({
             return (
               <rect
                 key={`${f}-${k}`}
-                x={x + u}
-                y={y + 3 + f * 7}
+                x={u}
+                y={3 + f * 7}
                 width={8}
                 height={4}
                 fill={lit ? '#fcd34d' : '#16203a'}
@@ -448,9 +425,26 @@ function FrontWall({
           }),
         )}
       </g>
+      {shade < 1 && <rect width={FOOTPRINT} height={height} fill="#020617" opacity={1 - shade} />}
     </g>
   )
 }
+
+function WallGlow({ height }: { height: number }) {
+  return (
+    <rect
+      className="bc-glow"
+      pointerEvents="none"
+      width={FOOTPRINT}
+      height={height}
+      fill="#fde68a"
+      fillOpacity={0.25}
+    />
+  )
+}
+
+/** 見つかっていない痕跡コマの濃さ */
+const UNFOUND_TRACE_OPACITY = 0.4
 
 /** 屋上に置くもの: 痕跡コマと逃亡者 */
 function RoofItems({
@@ -480,9 +474,10 @@ function RoofItems({
   )
 }
 
+/** 痕跡コマ。まだ警察に見つかっていない痕跡（逃亡者だけに見える）は薄く描く */
 function TraceToken({ trace, x, y }: { trace: VisibleTrace; x: number; y: number }) {
   return (
-    <g>
+    <g opacity={trace.found ? 1 : UNFOUND_TRACE_OPACITY}>
       <circle cx={x + 2} cy={y + 3} r={17} fill="#020617" opacity={0.5} />
       <circle
         cx={x}
@@ -726,54 +721,60 @@ function SearchBeam({ mode, effect }: { mode: ViewMode; effect: SearchEffect }) 
  */
 function SearchScan({ mode, effect }: { mode: ViewMode; effect: SearchEffect }) {
   const { x0, y0, h } = buildingBox(effect.building)
-  const roofTop = project(mode, x0, y0, h)
-  const sy = groundScaleY(mode)
+  const roof = planeMatrix(mode, { x: x0, y: y0, z: h }, { x: 1, y: 0 }, { x: 0, y: 1 })
   const center = roofCenter(mode, effect.building)
   const inset = 3
   const inner = FOOTPRINT - inset * 2
+  // 光の輪は室内からはみ出さないよう、室内の形（画面上の四角形）で切り抜く
+  const corner = (u: number, v: number) => project(mode, x0 + u, y0 + v, h)
+  const room = [
+    corner(inset, inset),
+    corner(inset + inner, inset),
+    corner(inset + inner, inset + inner),
+    corner(inset, inset + inner),
+  ]
   return (
     <g pointerEvents="none">
       <clipPath id="bc-scan-clip">
-        <rect
-          x={roofTop.x + inset}
-          y={roofTop.y + inset * sy}
-          width={inner}
-          height={inner * sy}
-          rx={3}
-        />
+        <polygon points={points(room)} />
       </clipPath>
       {/* 屋上を外して見えた暗い室内（各階の床の線） */}
-      <g
-        className="bc-scan-room"
-        transform={`translate(${roofTop.x}, ${roofTop.y}) scale(1, ${sy})`}
-      >
-        <rect
-          x={inset}
-          y={inset}
-          width={inner}
-          height={inner}
-          rx={3}
-          fill="#020617"
-          stroke="#fde68a"
-          strokeWidth={3}
-        />
-        {[0.3, 0.55, 0.8].map((f) => (
+      <g transform={roof}>
+        <g className="bc-scan-room">
           <rect
-            key={f}
-            x={inset + (inner * (1 - f)) / 2}
-            y={inset + (inner * (1 - f)) / 2}
-            width={inner * f}
-            height={inner * f}
-            fill="none"
-            stroke="#334155"
-            strokeWidth={1.5}
+            x={inset}
+            y={inset}
+            width={inner}
+            height={inner}
+            rx={3}
+            fill="#020617"
+            stroke="#fde68a"
+            strokeWidth={3}
           />
-        ))}
+          {[0.3, 0.55, 0.8].map((f) => (
+            <rect
+              key={f}
+              x={inset + (inner * (1 - f)) / 2}
+              y={inset + (inner * (1 - f)) / 2}
+              width={inner * f}
+              height={inner * f}
+              fill="none"
+              stroke="#334155"
+              strokeWidth={1.5}
+            />
+          ))}
+        </g>
       </g>
-      {/* 室内を照らす光の輪と、それを覗く虫めがね（一緒に動く） */}
+      {/* 室内を照らす光の輪と、それを覗く虫めがね（同じ動きをする） */}
+      <g clipPath="url(#bc-scan-clip)">
+        <g transform={`translate(${center.x}, ${center.y})`}>
+          <g className="bc-scan-spot">
+            <circle r={18} fill="url(#bc-spot)" />
+          </g>
+        </g>
+      </g>
       <g transform={`translate(${center.x}, ${center.y})`}>
         <g className="bc-scan-spot">
-          <circle r={18} fill="url(#bc-spot)" clipPath="url(#bc-scan-clip)" />
           <g className="bc-scan-lens">
             <path d="M 15 15 L 30 30" stroke="#0f172a" strokeWidth={10} strokeLinecap="round" />
             <path d="M 15 15 L 30 30" stroke="#f8fafc" strokeWidth={6} strokeLinecap="round" />

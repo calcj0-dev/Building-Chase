@@ -3,6 +3,7 @@ import { version } from '../../../package.json'
 import { useAppStore } from '../../store/appStore'
 import { Button } from '../Button'
 import { SettingsIcon } from '../icons'
+import { TitleDemo } from './TitleDemo'
 
 export function TitleScreen() {
   const { t } = useTranslation()
@@ -10,7 +11,18 @@ export function TitleScreen() {
   const openSettings = useAppStore((s) => s.openSettings)
   const openHelp = useAppStore((s) => s.openHelp)
   return (
-    <main className="mx-auto flex min-h-full max-w-sm flex-col items-center justify-center gap-4 p-6">
+    <main className="relative isolate mx-auto flex min-h-full max-w-sm flex-col items-center justify-center gap-4 p-6">
+      {/* 背景: CPU 同士のデモ対戦。文字とボタンが読めるよう暗くする */}
+      <div
+        className="pointer-events-none fixed inset-0 -z-10 flex items-center justify-center overflow-hidden p-2 opacity-45"
+        aria-hidden="true"
+      >
+        <TitleDemo />
+      </div>
+      <div
+        className="pointer-events-none fixed inset-0 -z-10 bg-gradient-to-b from-slate-950/40 via-slate-950/10 to-slate-950/60"
+        aria-hidden="true"
+      />
       {/* バージョン（画面の右上） */}
       <span className="fixed top-[max(8px,env(safe-area-inset-top))] right-[max(12px,env(safe-area-inset-right))] font-mono text-xs text-slate-500">
         v{version}

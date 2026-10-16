@@ -2,6 +2,9 @@
 export const CPU_LEVELS = ['normal', 'strong'] as const
 export type CpuLevel = (typeof CPU_LEVELS)[number]
 
+/** 普通の警察が「何もない」捜索を覚えているラウンド数（今のラウンドを含む） */
+export const NORMAL_POLICE_MEMORY_ROUNDS = 2
+
 /** 普通の警察が推理を使わず適当に行動する割合 */
 export const NORMAL_POLICE_MISTAKE_RATE = 0.2
 

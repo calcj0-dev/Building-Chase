@@ -77,8 +77,8 @@
     "quitYes": "Quit"
   },
   "viewMode": {
-    "top": "Top-down",
-    "tilt": "Tilted"
+    "front": "Front",
+    "angle": "Angled"
   },
   "header": {
     "round": "Round {{round}} / {{max}}",

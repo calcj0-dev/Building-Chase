@@ -53,8 +53,8 @@ export function SettingsModal() {
             value={viewMode}
             onChange={setViewMode}
             options={[
-              { value: 'top', label: t('viewMode.top') },
-              { value: 'tilt', label: t('viewMode.tilt') },
+              { value: 'front', label: t('viewMode.front') },
+              { value: 'angle', label: t('viewMode.angle') },
             ]}
           />
         </div>

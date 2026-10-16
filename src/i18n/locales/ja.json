@@ -77,8 +77,8 @@
     "quitYes": "終了する"
   },
   "viewMode": {
-    "top": "真上",
-    "tilt": "斜め"
+    "front": "正面",
+    "angle": "斜め"
   },
   "header": {
     "round": "Round {{round}} / {{max}}",

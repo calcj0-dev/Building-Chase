@@ -1,7 +1,7 @@
 import { midi, type Synth } from './synth'
 
 /** 捜索でビルの中を探す時間（秒）。画面の演出も同じ長さで、結果の音はその後に鳴らす */
-export const SEARCH_SCAN_SEC = 0.9
+export const SEARCH_SCAN_SEC = 2
 const R = SEARCH_SCAN_SEC
 
 /** 効果音の種類 */
@@ -39,12 +39,22 @@ export const SOUNDS: Record<SoundId, (s: Synth) => void> = {
     s.tone({ freq: 170, to: 100, at: 0.12, dur: 0.07, wave: 'square', gain: 0.07 })
   },
 
-  // 捜索: サーチライトで探し回る「ウィーン…ウィーン」とスキャナーの「ピッ」
+  // 捜索: サーチライトで探し回る「ウィーン…ウィーン」とスキャナーの「ピッ」（探している間ずっと）
   search: (s) => {
-    s.noise({ dur: 0.45, filter: 500, to: 1800, gain: 0.12 })
-    s.noise({ at: 0.45, dur: 0.45, filter: 1800, to: 500, gain: 0.12 })
-    for (const at of [0.1, 0.4, 0.7])
+    const sweep = R / 4
+    for (let i = 0; i < 4; i++) {
+      const up = i % 2 === 0
+      s.noise({
+        at: i * sweep,
+        dur: sweep,
+        filter: up ? 500 : 1800,
+        to: up ? 1800 : 500,
+        gain: 0.12,
+      })
+    }
+    for (let at = 0.1; at < R - 0.1; at += 0.3) {
       s.tone({ freq: 1500, at, dur: 0.05, wave: 'sine', gain: 0.06 })
+    }
   },
 
   // 何もなかった: 下がる2音

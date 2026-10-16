@@ -87,7 +87,7 @@ function ActionButton({
   return (
     <button
       type="button"
-      className={`flex min-h-12 items-center justify-center gap-1.5 rounded-xl px-3 font-bold ${style}`}
+      className={`flex min-h-12 items-center justify-center gap-1 rounded-xl px-2 font-bold whitespace-nowrap ${style}`}
       onClick={onClick}
     >
       {icon}

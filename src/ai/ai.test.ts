@@ -103,12 +103,20 @@ describe('inferRunner', () => {
 })
 
 describe('police AI', () => {
-  it('places all 3 cars on distinct central intersections', () => {
-    const rng = seededRng(7)
-    let s = createGame()
-    while (s.phase === 'setup') s = applyAction(s, choosePoliceAction(getView(s, 'police'), rng))
-    expect(new Set(s.helicopters).size).toBe(3)
-    expect(s.helicopters.every((p) => p !== null && [5, 6, 9, 10].includes(p))).toBe(true)
+  it('places the helicopters in varied patterns: sometimes all central, often spread out', () => {
+    const patterns = new Set<string>()
+    let allCentral = 0
+    for (let seed = 1; seed <= 100; seed++) {
+      const rng = seededRng(seed)
+      let s = createGame()
+      while (s.phase === 'setup') s = applyAction(s, choosePoliceAction(getView(s, 'police'), rng))
+      expect(new Set(s.helicopters).size).toBe(3)
+      patterns.add([...s.helicopters].sort().join(','))
+      if (s.helicopters.every((p) => p !== null && [5, 6, 9, 10].includes(p))) allCentral++
+    }
+    expect(allCentral).toBeGreaterThan(10)
+    expect(allCentral).toBeLessThan(60)
+    expect(patterns.size).toBeGreaterThan(30)
   })
 
   it.each(CPU_LEVELS)(
@@ -152,6 +160,49 @@ describe('police AI', () => {
       expect(action.type).toBe('policeSearch')
       expect([7, 11]).toContain(action.type === 'policeSearch' ? action.building : -1)
     }
+  })
+})
+
+describe('police AI: moving and searching', () => {
+  /** CPU 同士の対戦で、警察の行動（配置を除く）のうち移動の割合 */
+  function moveShare(level: CpuLevel): number {
+    let moves = 0
+    let searches = 0
+    for (let seed = 400; seed < 440; seed++) {
+      const rng = seededRng(seed)
+      let s = createGame()
+      while (s.phase !== 'ended') {
+        const action = chooseCpuAction(s, rng, currentRole(s) === 'police' ? level : 'strong')
+        if (action.type === 'policeMove') moves++
+        if (action.type === 'policeSearch') searches++
+        s = applyAction(s, action)
+      }
+    }
+    return moves / (moves + searches)
+  }
+
+  it('moves as well as searches (strong: about a third, normal: about half)', () => {
+    const strong = moveShare('strong')
+    const normal = moveShare('normal')
+    console.info('Police move share:', { strong, normal })
+    expect(strong).toBeGreaterThan(0.2)
+    expect(strong).toBeLessThan(0.45)
+    expect(normal).toBeGreaterThan(0.35)
+    expect(normal).toBeLessThan(0.65)
+  })
+
+  it.each(CPU_LEVELS)('only searches in the final search (%s)', (level) => {
+    // 5 に隠れて 6 → 7 → 8 → 9 → 14 → 13 → 12 → 11 → 10 → 15 → 16 と11回動く
+    const path = [5, 6, 7, 8, 9, 14, 13, 12, 11, 10, 15, 16]
+    let s = playRounds(placeAll([0, 3, 15]), path, [0, 4, 24])
+    expect(s.round).toBe(12)
+    for (let seed = 1; seed <= 20; seed++) {
+      expect(choosePoliceAction(getView(s, 'police'), seededRng(seed), level).type).toBe(
+        'policeSearch',
+      )
+    }
+    s = applyAction(s, { type: 'policeSearch', helicopter: 0, building: 0 })
+    expect(choosePoliceAction(getView(s, 'police'), seededRng(1), level).type).toBe('policeSearch')
   })
 })
 
