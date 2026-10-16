@@ -19,6 +19,11 @@
   },
   "select": {
     "title": "Choose Your Side",
+    "cpuLevel": {
+      "label": "CPU Strength",
+      "normal": "Normal",
+      "strong": "Strong"
+    },
     "runner": {
       "name": "Play as Runner",
       "description": "Hop from building to building and evade the CPU police for 11 rounds"

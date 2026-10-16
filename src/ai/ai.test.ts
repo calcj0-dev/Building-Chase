@@ -6,9 +6,18 @@ import {
   getLegalActions,
   getView,
   type GameState,
+  type Role,
 } from '../core'
 import { hideAt, placeAll, playRounds, searchAll } from '../core/testUtils'
-import { chooseCpuAction, choosePoliceAction, chooseRunnerAction, inferRunner, seededRng } from '.'
+import {
+  CPU_LEVELS,
+  chooseCpuAction,
+  choosePoliceAction,
+  chooseRunnerAction,
+  inferRunner,
+  seededRng,
+  type CpuLevel,
+} from '.'
 import { canKeepMoving } from './runner'
 
 // ビル ID           交差点 ID
@@ -25,12 +34,16 @@ function isLegal(state: GameState, action: ReturnType<typeof chooseCpuAction>): 
 }
 
 /** CPU 同士で1ゲーム。各手で合法性と推理の整合性を確認する */
-function playCpuGame(seed: number, onState?: (s: GameState) => void): GameState {
+function playCpuGame(
+  seed: number,
+  onState?: (s: GameState) => void,
+  levels: Record<Role, CpuLevel> = { police: 'strong', runner: 'strong' },
+): GameState {
   const rng = seededRng(seed)
   let s = createGame()
   for (let guard = 0; s.phase !== 'ended' && guard < 200; guard++) {
     onState?.(s)
-    const action = chooseCpuAction(s, rng)
+    const action = chooseCpuAction(s, rng, levels[currentRole(s)!])
     expect(isLegal(s, action)).toBe(true)
     s = applyAction(s, action)
   }
@@ -98,17 +111,20 @@ describe('police AI', () => {
     expect(s.helicopters.every((p) => p !== null && [5, 6, 9, 10].includes(p))).toBe(true)
   })
 
-  it('decides the same way whatever the hidden runner position is', () => {
-    // 警察から見て区別できない2つの状態（逃亡者のスタート地点だけが違う）
-    const a = hideAt(placeAll([5, 6, 9]), 0)
-    const b = hideAt(placeAll([5, 6, 9]), 24)
-    expect(getView(a, 'police')).toEqual(getView(b, 'police'))
-    for (let seed = 1; seed <= 10; seed++) {
-      expect(choosePoliceAction(getView(a, 'police'), seededRng(seed))).toEqual(
-        choosePoliceAction(getView(b, 'police'), seededRng(seed)),
-      )
-    }
-  })
+  it.each(CPU_LEVELS)(
+    'decides the same way whatever the hidden runner position is (%s)',
+    (level) => {
+      // 警察から見て区別できない2つの状態（逃亡者のスタート地点だけが違う）
+      const a = hideAt(placeAll([5, 6, 9]), 0)
+      const b = hideAt(placeAll([5, 6, 9]), 24)
+      expect(getView(a, 'police')).toEqual(getView(b, 'police'))
+      for (let seed = 1; seed <= 10; seed++) {
+        expect(choosePoliceAction(getView(a, 'police'), seededRng(seed), level)).toEqual(
+          choosePoliceAction(getView(b, 'police'), seededRng(seed), level),
+        )
+      }
+    },
+  )
 
   it('refuses to work from the runner view', () => {
     const s = hideAt(placeAll([5, 6, 9]), 0)
@@ -158,6 +174,16 @@ describe('runner AI', () => {
     }
   })
 
+  it('never walks into a dead end at the normal strength either', () => {
+    const s = searchAll(playRounds(placeAll([15, 12, 3]), [5, 6, 1], IDLE_SEARCHES), IDLE_SEARCHES)
+    for (let seed = 1; seed <= 40; seed++) {
+      expect(chooseRunnerAction(s, seededRng(seed), 'normal')).toEqual({
+        type: 'runnerMove',
+        building: 2,
+      })
+    }
+  })
+
   it('checks whether a route long enough exists', () => {
     expect(canKeepMoving(0, new Set([0, 1, 5]), 1)).toBe(false)
     expect(canKeepMoving(12, new Set([12]), 10)).toBe(true)
@@ -178,5 +204,21 @@ describe('CPU vs CPU', () => {
     // 勝率の目安（調整の参考としてログに出す）
     console.info('CPU vs CPU (60 games):', results, reasons)
     expect(results.runner + results.police).toBe(60)
+  })
+
+  it('gives the runner more wins against the normal police, and fewer as the normal runner', () => {
+    const runnerWins = (levels: Record<Role, CpuLevel>) => {
+      let wins = 0
+      for (let seed = 200; seed < 300; seed++) {
+        if (playCpuGame(seed, undefined, levels).winner === 'runner') wins++
+      }
+      return wins
+    }
+    const strong = runnerWins({ police: 'strong', runner: 'strong' })
+    const normalPolice = runnerWins({ police: 'normal', runner: 'strong' })
+    const normalRunner = runnerWins({ police: 'strong', runner: 'normal' })
+    console.info('Runner wins / 100:', { strong, normalPolice, normalRunner })
+    expect(normalPolice).toBeGreaterThan(strong + 15)
+    expect(normalRunner).toBeLessThan(strong)
   })
 })

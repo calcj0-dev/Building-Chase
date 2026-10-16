@@ -11,6 +11,7 @@ import {
   type GameState,
 } from '../core'
 import { inferRunner } from './inference'
+import { NORMAL_RUNNER_MISTAKE_RATE, type CpuLevel } from './level'
 import { pickBest, type Rng } from './random'
 
 export interface RunnerWeights {
@@ -36,16 +37,21 @@ export const DEFAULT_RUNNER_WEIGHTS: RunnerWeights = {
  * - ヘリコプターが今すぐ捜索できるビル（特に警察から見て「いそう」なビル）を避ける
  * - 最終ラウンドまで動き続けられない（包囲される）ビルを避ける
  * - 移動先の選択肢が多いビルを好む
+ * 普通（normal）の逃亡者は、ときどき危険を読まずに適当に移動する（行き止まりは避ける）。
  */
 export function chooseRunnerAction(
   state: GameState,
   rng: Rng,
+  level: CpuLevel = 'strong',
   weights: RunnerWeights = DEFAULT_RUNNER_WEIGHTS,
 ): Action {
   if (state.phase !== 'hide' && state.phase !== 'runner') {
     throw new Error(`Runner cannot act in phase ${state.phase}`)
   }
   const targets = runnerMoveTargets(state)
+  if (level === 'normal' && rng() < NORMAL_RUNNER_MISTAKE_RATE) {
+    return { type: 'runnerMove', building: randomSafeTarget(state, targets, rng) }
+  }
 
   // この行動の後に警察が持つ推理（移動先によらず共通）。スタート地点を選ぶときは痕跡が増えない
   const policeView = getView(state, 'police')
@@ -90,6 +96,17 @@ export function chooseRunnerAction(
 
   const building = pickBest(targets, score, rng)
   return { type: 'runnerMove', building }
+}
+
+/** 最後まで動き続けられるビルから1つ選ぶ（なければ移動先のどれか） */
+function randomSafeTarget(state: GameState, targets: BuildingId[], rng: Rng): BuildingId {
+  const visited = new Set(state.traces.map((t) => t.building))
+  if (state.runnerPosition !== null) visited.add(state.runnerPosition)
+  const safe = targets.filter((b) =>
+    canKeepMoving(b, new Set(visited).add(b), MAX_ROUNDS - state.round),
+  )
+  const pool = safe.length > 0 ? safe : targets
+  return pool[Math.floor(rng() * pool.length)]
 }
 
 /** from から、blocked を通らずに moves 回移動し続けられるか */

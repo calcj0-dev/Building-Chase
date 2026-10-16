@@ -203,7 +203,7 @@ describe('VS CPU', () => {
   const cpu = (rngSeed: number): StoreEvent => ({ type: 'cpuStep', rng: seededRng(rngSeed) })
 
   it('lets the CPU police place helicopters, then waits for the human runner', () => {
-    let s = run([{ type: 'startGame', side: 'runner' }])
+    let s = run([{ type: 'startGame', side: 'runner', cpuLevel: 'strong' }])
     expect(isCpuTurn(s)).toBe(true)
     expect(highlightedIntersections(s)).toEqual([]) // 人は警察を操作できない
     s = run([cpu(1), cpu(2), cpu(3)], s)
@@ -213,14 +213,24 @@ describe('VS CPU', () => {
     expect(highlightedBuildings(s)).toHaveLength(25)
   })
 
+  it('keeps the CPU strength for the next game', () => {
+    let s = run([{ type: 'startGame', side: 'runner', cpuLevel: 'normal' }])
+    expect(s.cpuLevel).toBe('normal')
+    s = run([cpu(1), { type: 'newGame' }], s)
+    expect(s.cpuLevel).toBe('normal')
+    expect(run([{ type: 'startGame', side: 'runner', cpuLevel: 'strong' }], s).cpuLevel).toBe(
+      'strong',
+    )
+  })
+
   it('ignores CPU steps during the human turn', () => {
-    const s = run([{ type: 'startGame', side: 'police' }])
+    const s = run([{ type: 'startGame', side: 'police', cpuLevel: 'strong' }])
     expect(isHumanTurn(s)).toBe(true)
     expect(run([cpu(1)], s)).toBe(s)
   })
 
   it('shows the human side view and hides the CPU runner', () => {
-    let s = run([{ type: 'startGame', side: 'police' }, ...PLACE_ALL])
+    let s = run([{ type: 'startGame', side: 'police', cpuLevel: 'strong' }, ...PLACE_ALL])
     expect(viewRole(s)).toBe('police')
     s = run([cpu(1)], s) // CPU 逃亡者がスタート地点に隠れる
     expect(s.game.phase).toBe('police')
@@ -229,7 +239,7 @@ describe('VS CPU', () => {
   })
 
   it('plays a whole game against the CPU', () => {
-    let s = run([{ type: 'startGame', side: 'police' }, ...PLACE_ALL])
+    let s = run([{ type: 'startGame', side: 'police', cpuLevel: 'strong' }, ...PLACE_ALL])
     const rng = seededRng(42)
     for (let guard = 0; s.game.phase !== 'ended' && guard < 100; guard++) {
       if (isCpuTurn(s)) {

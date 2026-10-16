@@ -19,6 +19,11 @@
   },
   "select": {
     "title": "陣営を選ぶ",
+    "cpuLevel": {
+      "label": "CPU の強さ",
+      "normal": "普通",
+      "strong": "強い"
+    },
     "runner": {
       "name": "逃亡者で遊ぶ",
       "description": "ビルからビルへ逃げ回り、CPU の警察から11ラウンド逃げ切る"

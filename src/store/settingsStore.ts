@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
+import { CPU_LEVELS, type CpuLevel } from '../ai'
 import { storage } from '../storage'
 
 /** 盤面の視点。top: 真上から / tilt: 正面から浅く傾ける */
@@ -11,8 +12,11 @@ export type Language = (typeof LANGUAGES)[number]
 interface SettingsState {
   language: Language
   viewMode: ViewMode
+  /** 前回選んだ CPU の強さ */
+  cpuLevel: CpuLevel
   setLanguage(language: Language): void
   setViewMode(mode: ViewMode): void
+  setCpuLevel(level: CpuLevel): void
 }
 
 /** 端末に保存する設定（ストレージ層経由） */
@@ -21,13 +25,15 @@ export const useSettingsStore = create<SettingsState>()(
     (set) => ({
       language: 'ja',
       viewMode: 'top',
+      cpuLevel: 'normal',
       setLanguage: (language) => set({ language }),
       setViewMode: (viewMode) => set({ viewMode }),
+      setCpuLevel: (cpuLevel) => set({ cpuLevel }),
     }),
     {
       name: 'settings',
       storage: createJSONStorage(() => storage),
-      partialize: (s) => ({ language: s.language, viewMode: s.viewMode }),
+      partialize: (s) => ({ language: s.language, viewMode: s.viewMode, cpuLevel: s.cpuLevel }),
       // 保存された値が壊れていても既定値で起動する
       merge: (saved, current) => {
         const s = (saved ?? {}) as Partial<SettingsState>
@@ -35,6 +41,9 @@ export const useSettingsStore = create<SettingsState>()(
           ...current,
           language: LANGUAGES.includes(s.language as Language) ? (s.language as Language) : 'ja',
           viewMode: s.viewMode === 'tilt' ? 'tilt' : 'top',
+          cpuLevel: CPU_LEVELS.includes(s.cpuLevel as CpuLevel)
+            ? (s.cpuLevel as CpuLevel)
+            : 'normal',
         }
       },
     },

@@ -1,15 +1,20 @@
 import { useTranslation } from 'react-i18next'
+import { CPU_LEVELS, type CpuLevel } from '../../ai'
 import { useAppStore } from '../../store/appStore'
 import { useGameStore, type HumanSide } from '../../store/gameStore'
+import { useSettingsStore } from '../../store/settingsStore'
+import { Segmented } from '../Button'
 import { BackIcon } from '../icons'
 
-/** 陣営選択: 逃亡者 / 警察（VS CPU）、2人で遊ぶ（1台の端末） */
+/** 陣営選択: CPU の強さ、逃亡者 / 警察（VS CPU）、2人で遊ぶ（1台の端末） */
 export function SelectScreen() {
   const { t } = useTranslation()
   const go = useAppStore((s) => s.go)
   const startGame = useGameStore((s) => s.startGame)
+  const cpuLevel = useSettingsStore((s) => s.cpuLevel)
+  const setCpuLevel = useSettingsStore((s) => s.setCpuLevel)
   const start = (side: HumanSide) => {
-    startGame(side)
+    startGame(side, cpuLevel)
     go('game')
   }
   const options: { side: HumanSide; accent: string }[] = [
@@ -28,6 +33,18 @@ export function SelectScreen() {
         {t('common.back')}
       </button>
       <h1 className="text-2xl font-extrabold">{t('select.title')}</h1>
+      <div className="flex flex-col gap-2">
+        <span className="text-sm font-bold text-slate-300">{t('select.cpuLevel.label')}</span>
+        <Segmented<CpuLevel>
+          label={t('select.cpuLevel.label')}
+          value={cpuLevel}
+          onChange={setCpuLevel}
+          options={CPU_LEVELS.map((level) => ({
+            value: level,
+            label: t(`select.cpuLevel.${level}`),
+          }))}
+        />
+      </div>
       {options.map((o) => (
         <button
           key={o.side}

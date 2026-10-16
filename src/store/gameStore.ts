@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { chooseCpuAction, type Rng } from '../ai'
+import { chooseCpuAction, type CpuLevel, type Rng } from '../ai'
 import {
   HELICOPTERS,
   applyAction,
@@ -26,6 +26,8 @@ export type HumanSide = Role | 'both'
 export interface GameStoreState {
   /** 人が操作する陣営。null の間は陣営選択を表示する */
   humanSide: HumanSide | null
+  /** CPU の強さ（VS CPU のとき） */
+  cpuLevel: CpuLevel
   game: GameState
   /** 警察フェーズで選択中のヘリコプター */
   selectedHelicopter: HelicopterIndex | null
@@ -38,7 +40,7 @@ export interface GameStoreState {
 }
 
 export interface GameStoreActions {
-  startGame(side: HumanSide): void
+  startGame(side: HumanSide, cpuLevel: CpuLevel): void
   newGame(): void
   backToSelect(): void
   cpuStep(): void
@@ -52,9 +54,13 @@ export interface GameStoreActions {
 
 export type GameStore = GameStoreState & GameStoreActions
 
-export function initialStoreState(humanSide: HumanSide | null = 'both'): GameStoreState {
+export function initialStoreState(
+  humanSide: HumanSide | null = 'both',
+  cpuLevel: CpuLevel = 'normal',
+): GameStoreState {
   return {
     humanSide,
+    cpuLevel,
     game: createGame(),
     selectedHelicopter: null,
     mode: null,
@@ -117,17 +123,17 @@ export function selectableHelicopters(s: GameStoreState): HelicopterIndex[] {
 export function reduceStore(s: GameStoreState, event: StoreEvent): GameStoreState {
   switch (event.type) {
     case 'startGame':
-      return initialStoreState(event.side)
+      return initialStoreState(event.side, event.cpuLevel)
 
     case 'newGame':
-      return initialStoreState(s.humanSide)
+      return initialStoreState(s.humanSide, s.cpuLevel)
 
     case 'backToSelect':
-      return initialStoreState(null)
+      return initialStoreState(null, s.cpuLevel)
 
     case 'cpuStep':
       if (!isCpuTurn(s)) return s
-      return dispatch(s, chooseCpuAction(s.game, event.rng))
+      return dispatch(s, chooseCpuAction(s.game, event.rng, s.cpuLevel))
 
     case 'dismissHandoff':
       return { ...s, handoffTo: null }
@@ -175,7 +181,7 @@ export function reduceStore(s: GameStoreState, event: StoreEvent): GameStoreStat
 }
 
 export type StoreEvent =
-  | { type: 'startGame'; side: HumanSide }
+  | { type: 'startGame'; side: HumanSide; cpuLevel: CpuLevel }
   | { type: 'newGame' }
   | { type: 'backToSelect' }
   | { type: 'cpuStep'; rng?: Rng }
@@ -195,6 +201,7 @@ function dispatch(s: GameStoreState, action: Action): GameStoreState {
     s.humanSide === 'both' && before !== null && after !== null && before !== after
   return {
     humanSide: s.humanSide,
+    cpuLevel: s.cpuLevel,
     game,
     selectedHelicopter: null,
     mode: null,
@@ -207,7 +214,7 @@ export const useGameStore = create<GameStore>()((set) => {
   const send = (event: StoreEvent) => set((s) => reduceStore(s, event))
   return {
     ...initialStoreState(null),
-    startGame: (side) => send({ type: 'startGame', side }),
+    startGame: (side, cpuLevel) => send({ type: 'startGame', side, cpuLevel }),
     newGame: () => send({ type: 'newGame' }),
     backToSelect: () => send({ type: 'backToSelect' }),
     cpuStep: () => send({ type: 'cpuStep' }),

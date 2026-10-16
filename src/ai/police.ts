@@ -8,7 +8,8 @@ import {
   type IntersectionId,
   type HelicopterIndex,
 } from '../core'
-import { inferRunner, type RunnerBelief } from './inference'
+import { inferRunner, type PoliceKnowledge, type RunnerBelief } from './inference'
+import { NORMAL_POLICE_MISTAKE_RATE, type CpuLevel } from './level'
 import { pickBest, type Rng } from './random'
 
 // 中央の4交差点はそれぞれ内側のビル4棟に接し、序盤の捜索範囲が最も広い
@@ -29,21 +30,34 @@ export const DEFAULT_POLICE_WEIGHTS: PoliceWeights = { future: 1.5, info: 0.3, f
 /**
  * CPU警察の行動を1つ選ぶ（ヘリコプター1機分）。
  * 引数は警察視点の GameView のみ。逃亡者の位置は参照できない。
+ * 普通（normal）の警察は、前のラウンドまでの「何もない」捜索を推理に使わず、ときどき適当に行動する。
  */
 export function choosePoliceAction(
   view: GameView,
   rng: Rng,
+  level: CpuLevel = 'strong',
   weights: PoliceWeights = DEFAULT_POLICE_WEIGHTS,
 ): Action {
   if (view.role !== 'police') throw new Error('choosePoliceAction requires the police view')
   if (view.phase === 'setup') return choosePlacement(view, rng)
   if (view.phase !== 'police') throw new Error(`Police cannot act in phase ${view.phase}`)
 
-  const belief = inferRunner(view)
+  const belief = inferRunner(level === 'normal' ? forgetOldMisses(view) : view)
   const options = HELICOPTERS.filter((helicopter) => !view.actedHelicopters[helicopter]).flatMap(
     (helicopter) => helicopterOptions(view, helicopter, belief, weights),
   )
+  if (level === 'normal' && rng() < NORMAL_POLICE_MISTAKE_RATE) {
+    return options[Math.floor(rng() * options.length)].action
+  }
   return pickBest(options, (o) => o.score, rng).action
+}
+
+/** 今のラウンドより前の「何もない」捜索を忘れる（見つけた痕跡は覚えている） */
+function forgetOldMisses(view: GameView): PoliceKnowledge {
+  return {
+    ...view,
+    searchLog: view.searchLog.filter((s) => s.outcome !== 'nothing' || s.round === view.round),
+  }
 }
 
 /** 捜索結果（車 / 痕跡 / 何もない）のエントロピー。結果が読めないビルほど調べる価値がある */
