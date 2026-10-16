@@ -14,6 +14,10 @@ export function SettingsModal() {
   const viewMode = useSettingsStore((s) => s.viewMode)
   const setLanguage = useSettingsStore((s) => s.setLanguage)
   const setViewMode = useSettingsStore((s) => s.setViewMode)
+  const bgm = useSettingsStore((s) => s.bgm)
+  const se = useSettingsStore((s) => s.se)
+  const setBgm = useSettingsStore((s) => s.setBgm)
+  const setSe = useSettingsStore((s) => s.setSe)
   const [confirmQuit, setConfirmQuit] = useState(false)
   const inGame = screen === 'game'
 
@@ -55,6 +59,9 @@ export function SettingsModal() {
           />
         </div>
 
+        <OnOff label={t('settings.bgm')} value={bgm} onChange={setBgm} />
+        <OnOff label={t('settings.se')} value={se} onChange={setSe} />
+
         {inGame &&
           (confirmQuit ? (
             <div className="flex flex-col gap-2 rounded-2xl bg-red-950/60 p-3">
@@ -76,6 +83,32 @@ export function SettingsModal() {
 
         <Button onClick={close}>{t('common.close')}</Button>
       </div>
+    </div>
+  )
+}
+
+function OnOff({
+  label,
+  value,
+  onChange,
+}: {
+  label: string
+  value: boolean
+  onChange(on: boolean): void
+}) {
+  const { t } = useTranslation()
+  return (
+    <div className="flex flex-col gap-2">
+      <span className="text-sm font-bold text-slate-300">{label}</span>
+      <Segmented<'on' | 'off'>
+        label={label}
+        value={value ? 'on' : 'off'}
+        onChange={(v) => onChange(v === 'on')}
+        options={[
+          { value: 'on', label: t('settings.on') },
+          { value: 'off', label: t('settings.off') },
+        ]}
+      />
     </div>
   )
 }

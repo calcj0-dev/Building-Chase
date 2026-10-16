@@ -60,6 +60,10 @@
     "title": "Settings",
     "language": "Language",
     "viewMode": "Board view",
+    "bgm": "Music",
+    "se": "Sound effects",
+    "on": "On",
+    "off": "Off",
     "quit": "Quit to Title",
     "quitConfirm": "End this game and return to the title screen?",
     "quitYes": "Quit"

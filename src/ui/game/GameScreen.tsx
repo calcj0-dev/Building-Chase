@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { audio, soundsForTransition } from '../../audio'
 import {
   FINAL_SEARCH_ROUND,
   MAX_ROUNDS,
@@ -77,6 +78,29 @@ export function GameScreen() {
   }
   const hideBanner = useCallback(() => setBannerKey(null), [])
 
+  // ===== 音 =====
+  // 1手ごとの効果音（人の操作でも CPU の行動でも、状態の変化から決める）
+  const prevGame = useRef(game)
+  useEffect(() => {
+    for (const sound of soundsForTransition(prevGame.current, game)) audio.play(sound)
+    prevGame.current = game
+  }, [game])
+  // ターン通知（VS CPU はカットイン、2人で遊ぶは「端末を渡す」画面と一緒に鳴らす）
+  useEffect(() => {
+    if (cutIn) audio.play(cutIn === 'your' ? 'yourTurn' : 'enemyTurn')
+  }, [cutIn])
+  useEffect(() => {
+    if (store.handoffTo) audio.play('yourTurn')
+  }, [store.handoffTo])
+  const tapHelicopter = store.tapHelicopter
+  const onTapHelicopter = useCallback(
+    (helicopter: Parameters<typeof tapHelicopter>[0]) => {
+      audio.play('tap')
+      tapHelicopter(helicopter)
+    },
+    [tapHelicopter],
+  )
+
   // CPU の手番を進める。設定画面を開いている間とカットインの間は止める
   useEffect(() => {
     if (!cpuTurn || settingsOpen || cutIn) return
@@ -84,13 +108,18 @@ export function GameScreen() {
     return () => clearTimeout(timer)
   }, [cpuTurn, game, settingsOpen, cutIn])
 
-  // 決着したら少し間を置いてリザルト画面へ
+  // 決着したら少し間を置いてリザルト画面へ。勝敗の音はリザルト画面に移るときに鳴らす
+  // （VS CPU で負けたときだけ負けの音。2人で遊ぶでは勝った側を祝う）
   const ended = game.phase === 'ended'
+  const lost = (humanSide === 'runner' || humanSide === 'police') && game.winner !== humanSide
   useEffect(() => {
     if (!ended || settingsOpen) return
-    const timer = setTimeout(() => go('result'), RESULT_DELAY_MS)
+    const timer = setTimeout(() => {
+      audio.play(lost ? 'defeat' : 'victory')
+      go('result')
+    }, RESULT_DELAY_MS)
     return () => clearTimeout(timer)
-  }, [ended, settingsOpen, go])
+  }, [ended, lost, settingsOpen, go])
 
   // 人の陣営の視点で表示する（ホットシートでは手番の陣営）。決着後は全公開
   const view = getView(game, viewRole(store))
@@ -167,7 +196,7 @@ export function GameScreen() {
           policeMode={store.mode}
           onTapBuilding={store.tapBuilding}
           onTapIntersection={store.tapIntersection}
-          onTapHelicopter={store.tapHelicopter}
+          onTapHelicopter={onTapHelicopter}
           searchEffect={searchEffect}
         />
       </main>
