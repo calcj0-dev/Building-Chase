@@ -51,7 +51,7 @@
     },
     "police": {
       "heading": "The Police",
-      "body": "Tap a helicopter to light up the intersections it can move to (blue) and the buildings it can search (yellow). Tap a blue intersection to move, or a yellow building to search. A building where a trace was found cannot be searched again. When all 3 have acted, it is the runner's turn. You can search right after the runner hides.",
+      "body": "Tap a helicopter to light up the intersections it can move to (blue) and the buildings it can search (yellow). Tap where to go, then ✓ to move or search (× to cancel). A building where a trace was found cannot be searched again. When all 3 have acted, it is the runner's turn. You can search right after the runner hides.",
       "diagram": "Diagram: helicopter 1 is selected. It can move to a blue intersection (arrow) or search a yellow building (magnifying glass)"
     },
     "traces": {
@@ -106,7 +106,9 @@
     "policeChooseAction": "Tap where helicopter {{number}} should go",
     "policeFinalSearch": "Final search! Tap a helicopter to act",
     "legendMove": "Glowing intersection: move",
-    "legendSearch": "Glowing building: search"
+    "legendSearch": "Glowing building: search",
+    "confirmMove": "Move helicopter {{number}} here? Tap ✓ to confirm or × to cancel",
+    "confirmSearch": "Search this building with helicopter {{number}}? Tap ✓ to confirm or × to cancel"
   },
   "action": {
     "back": "Back"

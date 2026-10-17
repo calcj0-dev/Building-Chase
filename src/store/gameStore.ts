@@ -21,6 +21,10 @@ import {
 /** 人が操作する陣営。both は1台の端末で2人が交代で遊ぶ（ホットシート） */
 export type HumanSide = Role | 'both'
 
+/** 警察が選んだ行き先（✓ で決定、× でやめる。押し間違いを防ぐため、タップしてすぐには行動しない） */
+export type PendingPoliceAction =
+  { type: 'move'; intersection: IntersectionId } | { type: 'search'; building: BuildingId }
+
 export interface GameStoreState {
   /** 人が操作する陣営。null の間は陣営選択を表示する */
   humanSide: HumanSide | null
@@ -29,6 +33,8 @@ export interface GameStoreState {
   game: GameState
   /** 警察フェーズで選択中のヘリコプター */
   selectedHelicopter: HelicopterIndex | null
+  /** 選択中のヘリコプターの、決定待ちの行き先 */
+  pending: PendingPoliceAction | null
   /** 直前の捜索結果（次の行動まで表示する） */
   lastSearch: SearchRecord | null
   /** ホットシートで端末を渡す相手。null の間は盤面を表示する */
@@ -44,6 +50,8 @@ export interface GameStoreActions {
   tapIntersection(intersection: IntersectionId): void
   tapHelicopter(helicopter: HelicopterIndex): void
   cancelSelection(): void
+  confirmPending(): void
+  cancelPending(): void
   dismissHandoff(): void
 }
 
@@ -58,6 +66,7 @@ export function initialStoreState(
     cpuLevel,
     game: createGame(),
     selectedHelicopter: null,
+    pending: null,
     lastSearch: null,
     handoffTo: null,
   }
@@ -134,12 +143,27 @@ export function reduceStore(s: GameStoreState, event: StoreEvent): GameStoreStat
       return { ...s, handoffTo: null }
 
     case 'cancelSelection':
+      // 決定待ちの行き先があれば、まずそれをやめる
+      if (s.pending !== null) return { ...s, pending: null }
       return { ...s, selectedHelicopter: null }
+
+    case 'cancelPending':
+      return { ...s, pending: null }
+
+    case 'confirmPending': {
+      const { pending, selectedHelicopter: helicopter } = s
+      if (pending === null || helicopter === null || s.game.phase !== 'police') return s
+      return pending.type === 'move'
+        ? dispatch(s, { type: 'policeMove', helicopter, intersection: pending.intersection })
+        : dispatch(s, { type: 'policeSearch', helicopter, building: pending.building })
+    }
 
     case 'tapHelicopter':
       if (!selectableHelicopters(s).includes(event.helicopter)) return s
-      if (s.selectedHelicopter === event.helicopter) return { ...s, selectedHelicopter: null }
-      return { ...s, selectedHelicopter: event.helicopter }
+      if (s.selectedHelicopter === event.helicopter) {
+        return { ...s, selectedHelicopter: null, pending: null }
+      }
+      return { ...s, selectedHelicopter: event.helicopter, pending: null }
 
     case 'tapIntersection': {
       if (!highlightedIntersections(s).includes(event.intersection)) return s
@@ -148,11 +172,7 @@ export function reduceStore(s: GameStoreState, event: StoreEvent): GameStoreStat
         return dispatch(s, { type: 'placePolice', helicopter, intersection: event.intersection })
       }
       if (s.selectedHelicopter === null) return s
-      return dispatch(s, {
-        type: 'policeMove',
-        helicopter: s.selectedHelicopter,
-        intersection: event.intersection,
-      })
+      return { ...s, pending: { type: 'move', intersection: event.intersection } }
     }
 
     case 'tapBuilding': {
@@ -161,11 +181,7 @@ export function reduceStore(s: GameStoreState, event: StoreEvent): GameStoreStat
         return dispatch(s, { type: 'runnerMove', building: event.building })
       }
       if (s.selectedHelicopter === null) return s
-      return dispatch(s, {
-        type: 'policeSearch',
-        helicopter: s.selectedHelicopter,
-        building: event.building,
-      })
+      return { ...s, pending: { type: 'search', building: event.building } }
     }
   }
 }
@@ -177,6 +193,8 @@ export type StoreEvent =
   | { type: 'cpuStep'; rng?: Rng }
   | { type: 'dismissHandoff' }
   | { type: 'cancelSelection' }
+  | { type: 'confirmPending' }
+  | { type: 'cancelPending' }
   | { type: 'tapHelicopter'; helicopter: HelicopterIndex }
   | { type: 'tapIntersection'; intersection: IntersectionId }
   | { type: 'tapBuilding'; building: BuildingId }
@@ -193,6 +211,7 @@ function dispatch(s: GameStoreState, action: Action): GameStoreState {
     cpuLevel: s.cpuLevel,
     game,
     selectedHelicopter: null,
+    pending: null,
     lastSearch: action.type === 'policeSearch' ? (game.searchLog.at(-1) ?? null) : null,
     handoffTo: roleChanged ? after : null,
   }
@@ -210,6 +229,8 @@ export const useGameStore = create<GameStore>()((set) => {
     tapIntersection: (intersection) => send({ type: 'tapIntersection', intersection }),
     tapHelicopter: (helicopter) => send({ type: 'tapHelicopter', helicopter }),
     cancelSelection: () => send({ type: 'cancelSelection' }),
+    confirmPending: () => send({ type: 'confirmPending' }),
+    cancelPending: () => send({ type: 'cancelPending' }),
     dismissHandoff: () => send({ type: 'dismissHandoff' }),
   }
 })

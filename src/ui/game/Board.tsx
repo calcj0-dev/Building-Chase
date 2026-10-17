@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef, useState } from 'react'
 import {
   ALL_INTERSECTIONS,
   type BuildingId,
@@ -8,6 +9,7 @@ import {
   type TraceColor,
   type VisibleTrace,
 } from '../../core'
+import type { PendingPoliceAction } from '../../store/gameStore'
 import type { ViewMode } from '../../store/settingsStore'
 import { HELICOPTER_COLORS, TRACE_COLORS } from '../theme'
 import {
@@ -53,6 +55,10 @@ interface BoardProps {
   className?: string
   /** 直前の捜索の演出（サーチライトでビルの中を探し、結果のマークが浮かぶ）。key が変わるたびに再生する */
   searchEffect?: SearchEffect | null
+  /** 決定待ちの行き先。その場所に ✓（決定）と ×（やめる）を出す */
+  pending?: PendingPoliceAction | null
+  onConfirm?(): void
+  onCancel?(): void
 }
 
 export interface SearchEffect {
@@ -79,8 +85,29 @@ export function Board({
   onTapHelicopter,
   className = '',
   searchEffect = null,
+  pending = null,
+  onConfirm = () => {},
+  onCancel = () => {},
 }: BoardProps) {
   const traceByBuilding = new Map(view.traces.map((t) => [t.building, t]))
+  // 画面上の 1px が盤面の座標でいくつか（✓ / × を画面の大きさによらず押しやすい大きさにするため）
+  const svgRef = useRef<SVGSVGElement>(null)
+  const [unitsPerPx, setUnitsPerPx] = useState(1)
+  useLayoutEffect(() => {
+    const svg = svgRef.current
+    if (!svg || typeof ResizeObserver === 'undefined') return
+    const update = () => {
+      const [, , w, h] = viewBox(mode).split(' ').map(Number)
+      const rect = svg.getBoundingClientRect()
+      // viewBox は縦横比を保って収める（短い方に合わせる）
+      const scale = Math.min(rect.width / w, rect.height / h)
+      if (scale > 0) setUnitsPerPx(1 / scale)
+    }
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(svg)
+    return () => observer.disconnect()
+  }, [mode])
   // 警察がヘリコプターを選んで、行き先（移動 / 捜索）を選んでいる最中
   const choosing = selectedHelicopter !== null
   const showRoute = view.phase === 'ended'
@@ -94,6 +121,7 @@ export function Board({
 
   return (
     <svg
+      ref={svgRef}
       viewBox={viewBox(mode)}
       className={`touch-manipulation select-none ${className || 'h-auto w-full'}`}
       role="img"
@@ -217,12 +245,24 @@ export function Board({
       )}
 
       {choosing ? (
-        <ChoiceMarkers
-          mode={mode}
-          from={view.helicopters[selectedHelicopter]}
-          highlightedBuildings={highlightedBuildings}
-          highlightedIntersections={highlightedIntersections}
-        />
+        <>
+          <ChoiceMarkers
+            mode={mode}
+            from={view.helicopters[selectedHelicopter]}
+            highlightedBuildings={highlightedBuildings}
+            highlightedIntersections={highlightedIntersections}
+            pending={pending}
+          />
+          {pending && (
+            <ConfirmButtons
+              mode={mode}
+              unitsPerPx={unitsPerPx}
+              pending={pending}
+              onConfirm={onConfirm}
+              onCancel={onCancel}
+            />
+          )}
+        </>
       ) : (
         // 配置の候補の交差点は最前面に表示し、ヘリコプターの下でもタップできるようにする
         ALL_INTERSECTIONS.filter((id) => highlightedIntersections.includes(id)).map((id) => {
@@ -641,21 +681,117 @@ function ChoiceHitAreas({
   )
 }
 
+/** 決定待ちの行き先の位置（ビルは屋上の中心、交差点は地面） */
+function pendingAnchor(mode: ViewMode, pending: PendingPoliceAction) {
+  return pending.type === 'search'
+    ? roofCenter(mode, pending.building)
+    : intersectionGround(mode, pending.intersection)
+}
+
+/** ✓ と × のボタンの半径（盤面の座標）。画面上で CONFIRM_MIN_PX より小さくならないよう大きくする */
+const CONFIRM_RADIUS = 30
+/** ✓ と × のボタンの画面上の最小の直径（px。指で押しやすい大きさ） */
+const CONFIRM_MIN_PX = 48
+
+/**
+ * 決定待ちの行き先のすぐ上に出す ✓（決定）と ×（やめる）。盤面の最前面に置き、盤面の外にはみ出さない
+ */
+function ConfirmButtons({
+  mode,
+  unitsPerPx,
+  pending,
+  onConfirm,
+  onCancel,
+}: {
+  mode: ViewMode
+  /** 画面上の 1px が盤面の座標でいくつか */
+  unitsPerPx: number
+  pending: PendingPoliceAction
+  onConfirm(): void
+  onCancel(): void
+}) {
+  const a = pendingAnchor(mode, pending)
+  const [left, top, width, height] = viewBox(mode).split(' ').map(Number)
+  const r = Math.max(CONFIRM_RADIUS, (CONFIRM_MIN_PX / 2) * unitsPerPx)
+  const k = r / CONFIRM_RADIUS // 記号（✓ / ×）もボタンに合わせて大きくする
+  const gap = r + 8
+  const lift = r * 2
+  const x = Math.min(Math.max(a.x, left + gap + r), left + width - gap - r)
+  // 上に場所がなければ下に出す
+  const above = a.y - lift
+  const y = above - r < top ? Math.min(a.y + lift, top + height - r) : above
+  return (
+    <g data-confirm>
+      <line x1={a.x} y1={a.y} x2={x} y2={y} stroke="#f8fafc" strokeWidth={3} opacity={0.7} />
+      <g
+        data-cancel
+        role="button"
+        aria-label="×"
+        className="cursor-pointer"
+        onClick={onCancel}
+        transform={`translate(${x - gap}, ${y})`}
+      >
+        <circle r={r} fill="#334155" stroke="#f8fafc" strokeWidth={4} />
+        <path
+          transform={`scale(${k})`}
+          d="M -10 -10 L 10 10 M 10 -10 L -10 10"
+          stroke="#f8fafc"
+          strokeWidth={6}
+          strokeLinecap="round"
+        />
+      </g>
+      <g
+        data-ok
+        role="button"
+        aria-label="✓"
+        className="cursor-pointer"
+        onClick={onConfirm}
+        transform={`translate(${x + gap}, ${y})`}
+      >
+        <circle r={r} fill="#16a34a" stroke="#f8fafc" strokeWidth={4} />
+        <path
+          transform={`scale(${k})`}
+          d="M -12 0 L -3 9 L 13 -9"
+          fill="none"
+          stroke="#f8fafc"
+          strokeWidth={6}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </g>
+    </g>
+  )
+}
+
 /** ヘリコプターを選んでいる間の目印（タップは通す）: 捜索先の虫めがね、移動先の青い丸と矢印 */
 function ChoiceMarkers({
   mode,
   from,
   highlightedBuildings,
   highlightedIntersections,
+  pending,
 }: {
   mode: ViewMode
   /** 選んだヘリコプターのいる交差点（矢印の向きの基準） */
   from: IntersectionId | null
   highlightedBuildings: BuildingId[]
   highlightedIntersections: IntersectionId[]
+  pending: PendingPoliceAction | null
 }) {
   return (
     <g pointerEvents="none">
+      {/* 決定待ちの行き先を白い輪で囲む */}
+      {pending && (
+        <circle
+          className="bc-glow"
+          cx={pendingAnchor(mode, pending).x}
+          cy={pendingAnchor(mode, pending).y}
+          r={24}
+          fill="none"
+          stroke="#f8fafc"
+          strokeWidth={4}
+        />
+      )}
       {highlightedBuildings.map((id) => {
         const p = roofCenter(mode, id)
         return (

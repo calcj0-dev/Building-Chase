@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Building Chase のアイコン: 夜のビル街と、サーチライトでビルを照らす警察のヘリコプター -->
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1e2a4a" />
+      <stop offset="1" stop-color="#070b16" />
+    </linearGradient>
+    <linearGradient id="beam" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fef9c3" stop-opacity="0.85" />
+      <stop offset="1" stop-color="#fde68a" stop-opacity="0.2" />
+    </linearGradient>
+  </defs>
+
+  <!-- 背景（角丸。maskable 版は別ファイルで全面に塗る） -->
+  <rect width="512" height="512" rx="112" fill="url(#sky)" />
+
+  <!-- サーチライトの光（ヘリコプターから真ん中のビルの屋上へ） -->
+  <polygon points="356,150 376,158 330,236 214,236" fill="url(#beam)" />
+
+  <!-- ビル（左・真ん中・右） -->
+  <g>
+    <rect x="70" y="262" width="118" height="178" rx="8" fill="#4b5f82" />
+    <rect x="70" y="262" width="118" height="20" rx="8" fill="#7b93bd" />
+    <rect x="200" y="226" width="134" height="214" rx="8" fill="#56688b" />
+    <rect x="200" y="226" width="134" height="20" rx="8" fill="#fde68a" />
+    <rect x="346" y="298" width="98" height="142" rx="8" fill="#4b5f82" />
+    <rect x="346" y="298" width="98" height="20" rx="8" fill="#7b93bd" />
+  </g>
+
+  <!-- 窓の明かり -->
+  <g fill="#fcd34d">
+    <rect x="90" y="306" width="22" height="16" rx="3" />
+    <rect x="146" y="342" width="22" height="16" rx="3" />
+    <rect x="90" y="378" width="22" height="16" rx="3" opacity="0.5" />
+    <rect x="222" y="272" width="24" height="18" rx="3" />
+    <rect x="288" y="272" width="24" height="18" rx="3" opacity="0.5" />
+    <rect x="255" y="314" width="24" height="18" rx="3" />
+    <rect x="222" y="356" width="24" height="18" rx="3" opacity="0.5" />
+    <rect x="288" y="356" width="24" height="18" rx="3" />
+    <rect x="364" y="338" width="22" height="16" rx="3" />
+    <rect x="404" y="374" width="22" height="16" rx="3" opacity="0.5" />
+  </g>
+
+  <!-- 痕跡（赤の6番目）: 左のビルの屋上 -->
+  <circle cx="129" cy="250" r="26" fill="#ef4444" stroke="#f8fafc" stroke-width="6" />
+  <text x="129" y="262" text-anchor="middle" font-family="Arial, sans-serif" font-size="34" font-weight="bold" fill="#0f172a">6</text>
+
+  <!-- 警察のヘリコプター（右上） -->
+  <g transform="translate(366, 128)">
+    <!-- テール -->
+    <path d="M 22 -6 L 82 -14 L 82 -2 L 22 10 Z" fill="#fbbf24" stroke="#0f172a" stroke-width="5" stroke-linejoin="round" />
+    <path d="M 72 -14 L 84 -38 L 94 -38 L 88 -6 Z" fill="#fbbf24" stroke="#0f172a" stroke-width="5" stroke-linejoin="round" />
+    <!-- 胴体 -->
+    <path d="M -40 2 C -40 -20 -22 -30 0 -30 C 20 -30 32 -20 32 -4 C 32 12 20 20 0 20 L -26 20 C -36 20 -40 12 -40 2 Z" fill="#fbbf24" stroke="#0f172a" stroke-width="6" stroke-linejoin="round" />
+    <!-- 窓 -->
+    <path d="M -38 0 C -36 -16 -22 -25 -6 -25 L -6 0 Z" fill="#bae6fd" stroke="#0f172a" stroke-width="4" stroke-linejoin="round" />
+    <!-- 回転灯 -->
+    <rect x="-10" y="-40" width="9" height="8" rx="2" fill="#ef4444" />
+    <rect x="1" y="-40" width="9" height="8" rx="2" fill="#3b82f6" />
+    <!-- ローター -->
+    <rect x="-3" y="-48" width="6" height="12" fill="#0f172a" />
+    <rect x="-70" y="-54" width="140" height="8" rx="4" fill="#0f172a" />
+    <!-- スキッド -->
+    <path d="M -34 34 H 26" stroke="#0f172a" stroke-width="6" stroke-linecap="round" />
+    <path d="M -18 20 L -22 34 M 12 20 L 14 34" stroke="#0f172a" stroke-width="5" stroke-linecap="round" />
+  </g>
+</svg>

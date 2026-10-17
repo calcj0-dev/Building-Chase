@@ -158,13 +158,14 @@
 
 ---
 
-## Phase 10: PWA 化 🟡 P1
-- [ ] vite-plugin-pwa 導入
-- [ ] manifest 設定（アプリ名・アイコン・縦向き `orientation`・テーマ色）
-- [ ] アプリアイコン作成
-- [ ] オフライン動作（Service Worker キャッシュ）
+## Phase 10: PWA 化 🟡 P1 ✅ v0.10.0
+- [x] vite-plugin-pwa 導入
+- [x] manifest 設定（アプリ名・アイコン・`orientation`・テーマ色）。画面の向きは固定しない（`any`。縦・横どちらのレイアウトもあるため）
+- [x] アプリアイコン作成（夜のビル街とサーチライトのヘリコプター。`public/icon.svg` から PNG を作る）
+- [x] オフライン動作（Service Worker キャッシュ）
 
 **完了確認**: ブラウザでインストールでき、オフラインで遊べる（Lighthouse の PWA チェック）
+> Lighthouse 12 で PWA の項目がなくなったため、Chrome のインストール可否のチェック（エラーなし）と、通信を切った状態での起動・ゲーム開始で確認した
 
 ---
 

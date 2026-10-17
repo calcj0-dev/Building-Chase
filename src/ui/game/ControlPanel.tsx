@@ -19,12 +19,19 @@ export function ControlPanel({ searching }: { searching: boolean }) {
   const { t } = useTranslation()
   const game = useGameStore((s) => s.game)
   const selectedHelicopter = useGameStore((s) => s.selectedHelicopter)
+  const pending = useGameStore((s) => s.pending)
   const lastSearch = useGameStore((s) => s.lastSearch)
   const cancelSelection = useGameStore((s) => s.cancelSelection)
 
   const humanTurn = useGameStore(isHumanTurn)
   // CPU の手番は操作案内を出さない（ヘッダーに「CPU思考中...」を表示）
-  const instruction = humanTurn ? instructionText(t, game, selectedHelicopter) : null
+  const instruction = !humanTurn
+    ? null
+    : pending !== null && selectedHelicopter !== null
+      ? t(pending.type === 'move' ? 'instruction.confirmMove' : 'instruction.confirmSearch', {
+          number: selectedHelicopter + 1,
+        })
+      : instructionText(t, game, selectedHelicopter)
   const choosing = humanTurn && game.phase === 'police' && selectedHelicopter !== null
   const canMove = choosing && policeMoveTargets(game, selectedHelicopter).length > 0
   const canSearch = choosing && policeSearchTargets(game, selectedHelicopter).length > 0
@@ -43,7 +50,7 @@ export function ControlPanel({ searching }: { searching: boolean }) {
       {instruction && (
         <p className="text-center text-sm font-medium text-slate-200">{instruction}</p>
       )}
-      {choosing && (
+      {choosing && pending === null && (
         <div className="flex w-full max-w-sm flex-wrap items-center justify-center gap-2">
           {canMove && (
             <Legend className="border-sky-300/60 bg-sky-950/80 text-sky-100" icon={<MoveIcon />}>

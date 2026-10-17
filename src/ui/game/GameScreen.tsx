@@ -135,6 +135,16 @@ export function GameScreen() {
   useEffect(() => {
     if (handoffTo) audio.play('yourTurn')
   }, [handoffTo])
+  // 盤面の ✓ / ×（盤面の上のボタンはタップ音が自動で鳴らないので、ここで鳴らす）
+  const { confirmPending, cancelPending } = store
+  const onConfirm = useCallback(() => {
+    audio.play('tap')
+    confirmPending()
+  }, [confirmPending])
+  const onCancel = useCallback(() => {
+    audio.play('tap')
+    cancelPending()
+  }, [cancelPending])
   const tapHelicopter = store.tapHelicopter
   const onTapHelicopter = useCallback(
     (helicopter: Parameters<typeof tapHelicopter>[0]) => {
@@ -240,6 +250,9 @@ export function GameScreen() {
           onTapIntersection={store.tapIntersection}
           onTapHelicopter={onTapHelicopter}
           searchEffect={searchEffect}
+          pending={busy ? null : store.pending}
+          onConfirm={onConfirm}
+          onCancel={onCancel}
         />
       </main>
 

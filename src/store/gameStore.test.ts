@@ -97,6 +97,7 @@ function searchAllEvents(buildings: [number, number, number]): StoreEvent[] {
   return buildings.flatMap((building, helicopter) => [
     { type: 'tapHelicopter', helicopter: helicopter as 0 | 1 | 2 },
     { type: 'tapBuilding', building },
+    { type: 'confirmPending' },
   ])
 }
 
@@ -132,11 +133,48 @@ describe('police turn', () => {
     expect(highlightedBuildings(s)).toEqual([])
   })
 
+  it('waits for a check before acting, and lets the player cancel or change the target', () => {
+    let s = run(
+      [
+        { type: 'tapHelicopter', helicopter: 0 },
+        { type: 'tapBuilding', building: 6 },
+      ],
+      policeTurn(),
+    )
+    expect(s.pending).toEqual({ type: 'search', building: 6 })
+    expect(s.game.searchLog).toEqual([])
+    // 別の行き先を選び直す
+    s = run([{ type: 'tapIntersection', intersection: 1 }], s)
+    expect(s.pending).toEqual({ type: 'move', intersection: 1 })
+    // × でやめる（ヘリコプターは選んだまま）
+    s = run([{ type: 'cancelPending' }], s)
+    expect(s.pending).toBeNull()
+    expect(s.selectedHelicopter).toBe(0)
+    // 戻る: 行き先があればそれをやめ、なければ選択を解除
+    s = run([{ type: 'tapBuilding', building: 5 }, { type: 'cancelSelection' }], s)
+    expect(s.pending).toBeNull()
+    expect(s.selectedHelicopter).toBe(0)
+    s = run([{ type: 'cancelSelection' }], s)
+    expect(s.selectedHelicopter).toBeNull()
+    // 別のヘリコプターを選ぶと行き先は消える
+    s = run(
+      [
+        { type: 'tapHelicopter', helicopter: 0 },
+        { type: 'tapBuilding', building: 6 },
+        { type: 'tapHelicopter', helicopter: 1 },
+      ],
+      s,
+    )
+    expect(s.pending).toBeNull()
+    expect(run([{ type: 'confirmPending' }], s).game.searchLog).toEqual([])
+  })
+
   it('confirms a move with the final tap and marks the helicopter as acted', () => {
     const s = run(
       [
         { type: 'tapHelicopter', helicopter: 0 },
         { type: 'tapIntersection', intersection: 1 },
+        { type: 'confirmPending' },
       ],
       policeTurn(),
     )
@@ -148,11 +186,11 @@ describe('police turn', () => {
   })
 
   it('records the last search result until the next action', () => {
-    let s = run(searchAllEvents([0, 6, 12]).slice(0, 2), policeTurn())
+    let s = run(searchAllEvents([0, 6, 12]).slice(0, 3), policeTurn())
     expect(s.lastSearch).toEqual({ round: 1, helicopter: 0, building: 0, outcome: 'nothing' })
     s = run([{ type: 'tapHelicopter', helicopter: 1 }], s)
     expect(s.lastSearch).not.toBeNull()
-    s = run([{ type: 'tapIntersection', intersection: 6 }], s)
+    s = run([{ type: 'tapIntersection', intersection: 6 }, { type: 'confirmPending' }], s)
     expect(s.lastSearch).toBeNull()
   })
 
@@ -171,6 +209,7 @@ describe('police turn', () => {
       { type: 'dismissHandoff' },
       { type: 'tapHelicopter', helicopter: 0 },
       { type: 'tapBuilding', building: 6 },
+      { type: 'confirmPending' },
     ])
     expect(s.game.phase).toBe('ended')
     expect(s.game.winner).toBe('police')
@@ -230,7 +269,13 @@ describe('VS CPU', () => {
         // 人の警察: 毎回ヘリコプター1 から順にその場で捜索
         const helicopter = selectableHelicopters(s)[0]
         s = run([{ type: 'tapHelicopter', helicopter }], s)
-        s = run([{ type: 'tapBuilding', building: highlightedBuildings(s)[0] }], s)
+        s = run(
+          [
+            { type: 'tapBuilding', building: highlightedBuildings(s)[0] },
+            { type: 'confirmPending' },
+          ],
+          s,
+        )
       }
     }
     expect(s.game.phase).toBe('ended')
