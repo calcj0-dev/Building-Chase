@@ -6,6 +6,7 @@ import {
   getLegalActions,
   getView,
   policeSearchTargets,
+  BUILDING_NEIGHBORS,
   canKeepMoving,
   type Action,
   type GameState,
@@ -191,6 +192,54 @@ describe('police AI: moving and searching', () => {
     expect(strong).toBeLessThan(0.45)
     expect(normal).toBeGreaterThan(0.35)
     expect(normal).toBeLessThan(0.65)
+  })
+
+  it('normal police chase a found trace: they search next to it and move closer', () => {
+    // 交差点 i のヘリコプターがビル b を捜索できるようになるまでの移動の回数
+    const steps = (i: number, b: number) => {
+      const [r, c, br, bc] = [Math.floor(i / 4), i % 4, Math.floor(b / 5), b % 5]
+      const rows = br < r ? r - br : Math.max(0, br - r - 1)
+      const cols = bc < c ? c - bc : Math.max(0, bc - c - 1)
+      return rows + cols
+    }
+    const count = (level: CpuLevel) => {
+      let closer = 0
+      let farther = 0
+      let nextTo = 0
+      let searches = 0
+      for (let seed = 600; seed < 660; seed++) {
+        const rng = seededRng(seed)
+        let s = createGame()
+        let trace = -1
+        let foundRound = -1
+        while (s.phase !== 'ended') {
+          const action = chooseCpuAction(s, rng, currentRole(s) === 'police' ? level : 'strong')
+          const recent = trace >= 0 && s.round <= foundRound + 3
+          if (recent && action.type === 'policeMove') {
+            const before = steps(s.helicopters[action.helicopter]!, trace)
+            const after = steps(action.intersection, trace)
+            if (after < before) closer++
+            if (after > before) farther++
+          }
+          if (recent && action.type === 'policeSearch') {
+            searches++
+            if (BUILDING_NEIGHBORS[trace].includes(action.building)) nextTo++
+          }
+          const next = applyAction(s, action)
+          if (action.type === 'policeSearch' && next.searchLog.at(-1)!.outcome === 'trace') {
+            trace = action.building
+            foundRound = s.round
+          }
+          s = next
+        }
+      }
+      return { closer, farther, nextTo: nextTo / searches }
+    }
+    const normal = count('normal')
+    const strong = count('strong')
+    console.info('After finding a trace:', { normal, strong })
+    expect(normal.closer).toBeGreaterThan(normal.farther)
+    expect(normal.nextTo).toBeGreaterThan(strong.nextTo)
   })
 
   it.each(CPU_LEVELS)(

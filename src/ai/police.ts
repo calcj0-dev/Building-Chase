@@ -1,6 +1,8 @@
 import {
   ALL_INTERSECTIONS,
+  BUILDING_NEIGHBORS,
   BUILDINGS_AROUND_INTERSECTION,
+  buildingPoint,
   FINAL_SEARCH_ROUND,
   intersectionPoint,
   INTERSECTION_NEIGHBORS,
@@ -47,7 +49,14 @@ export interface PoliceWeights {
    * 足跡を見つけると、その隣（次の足跡か、逃亡者がいる場所）を探すので、足跡をたどる動きになる
    */
   traceSeek: number
+  /** 見つけた足跡の隣のビル（足跡の続き）を捜索する価値 */
+  trailSearch: number
+  /** 見つけた足跡の隣のビルを捜索できる位置へ近づく価値（遠いほど弱くなる） */
+  trailMove: number
 }
+
+/** 足跡の続きへ近づく価値が、1歩遠くなるごとに何倍になるか */
+const TRAIL_DECAY = 0.5
 
 /** 「何もない」だったビルの捜索を避ける期間（ラウンド数。今のラウンドを含む） */
 const REPEAT_SEARCH_ROUNDS = 3
@@ -55,7 +64,9 @@ const REPEAT_SEARCH_ROUNDS = 3
 // 強い警察: CPU同士の対戦で比較し、複数の逃亡者の戦略に対して安定して強かった値。
 // 足跡がありそうなビルも捜索の価値に入れ（traceSeek）、見つけた足跡をたどるように探す（0.3〜0.6 で最も強かった）。
 // searchCost 0.4 で行動の約3割が移動になる。
-// 「何もない」だったビルの再捜索は推理上は意味があることも多いので、点数は少しだけ下げる
+// 「何もない」だったビルの再捜索は推理上は意味があることも多いので、点数は少しだけ下げる。
+// 見つけた足跡の隣を追いかけること（trailSearch / trailMove）はしない。足跡（黄・赤以外）は
+// 「いつか通った」ことしか分からず、見つけたときには逃亡者は離れていることが多いので、追うと大きく弱くなった
 export const DEFAULT_POLICE_WEIGHTS: PoliceWeights = {
   future: 1.5,
   info: 0.3,
@@ -64,17 +75,22 @@ export const DEFAULT_POLICE_WEIGHTS: PoliceWeights = {
   backtrackPenalty: 0.3,
   repeatSearchPenalty: 0.05,
   traceSeek: 0.6,
+  trailSearch: 0,
+  trailMove: 0,
 }
 
-// 普通の警察: 捜索の手間を大きくして移動を増やし（行動の4〜5割）、「何もない」だったビルの再捜索を避ける。
+// 普通の警察: 捜索の手間を大きくして移動を増やし（行動の約4割）、「何もない」だったビルの再捜索を避け、
+// 見つけた足跡の続きを追いかける。
 // 推理そのものは強い警察と同じ（以前の「忘れる」「ときどき適当に動く」手加減は、行ったり来たりや
 // 同じビルの捜索の繰り返しに見えたのでやめた）
 export const NORMAL_POLICE_WEIGHTS: PoliceWeights = {
   ...DEFAULT_POLICE_WEIGHTS,
-  searchCost: 0.6,
+  searchCost: 0.5,
   repeatSearchPenalty: 0.5,
-  // 足跡を強く追いかける（人から見て推理が分かりやすい。古い足跡まで追うので少し弱くなる）
-  traceSeek: 1,
+  // 人の刑事のように、足跡を見つけたらその隣を捜索し、離れたヘリコプターも近づいてくる
+  // （人から見て推理が分かりやすい。逃亡者がもう離れていても追うので、少し弱くなる）
+  trailSearch: 1.5,
+  trailMove: 0.5,
 }
 
 const POLICE_WEIGHTS: Record<CpuLevel, PoliceWeights> = {
@@ -149,6 +165,23 @@ function helicopterOptions(
 
   // 痕跡を見つけたビルは、もう捜索できない
   const found = new Set(view.traces.filter((t) => t.found).map((t) => t.building))
+  // 足跡の続き: 見つけた足跡の隣のビル（次の足跡か、逃亡者がいる場所）と、その見込み
+  const lead = new Map<BuildingId, number>()
+  for (const t of found) {
+    for (const b of BUILDING_NEIGHBORS[t]) {
+      const p = belief.here[b] + belief.visited[b]
+      if (!found.has(b) && p > 0) lead.set(b, p)
+    }
+  }
+  // 交差点から足跡の続きへ近づく価値（他のヘリコプターがもう捜索できるビルは除く。遠いほど弱い）
+  const trail = (i: IntersectionId) => {
+    let value = 0
+    for (const [b, p] of lead) {
+      if (coveredByOthers.has(b)) continue
+      value += p * TRAIL_DECAY ** stepsToSearch(i, b)
+    }
+    return value
+  }
   // 最近「何もない」だったビル（いそうなら手間を上回るので、また捜索する）
   const recentlyEmpty = new Set(
     view.searchLog
@@ -166,7 +199,9 @@ function helicopterOptions(
         belief.here[building] +
         weights.traceSeek * belief.visited[building] +
         weights.info * outcomeEntropy(belief.here[building], belief.visited[building]) +
-        weights.future * future(at) -
+        weights.future * future(at) +
+        weights.trailSearch * (lead.get(building) ?? 0) +
+        weights.trailMove * trail(at) -
         weights.searchCost -
         (recentlyEmpty.has(building) ? weights.repeatSearchPenalty : 0),
     }))
@@ -180,11 +215,22 @@ function helicopterOptions(
     .map((intersection) => ({
       action: { type: 'policeMove', helicopter, intersection } as Action,
       score:
-        weights.future * future(intersection) -
+        weights.future * future(intersection) +
+        weights.trailMove * trail(intersection) -
         (intersection === cameFrom ? weights.backtrackPenalty : 0),
     }))
 
   return [...searches, ...moves]
+}
+
+/** 交差点 i にいるヘリコプターが、ビル b を捜索できるようになるまでの移動の回数（隣接していれば 0） */
+function stepsToSearch(i: IntersectionId, b: BuildingId): number {
+  const p = intersectionPoint(i)
+  const q = buildingPoint(b)
+  // 交差点 (r, c) はビルの行 r・r+1、列 c・c+1 に接する
+  const rows = q.row < p.row ? p.row - q.row : Math.max(0, q.row - p.row - 1)
+  const cols = q.col < p.col ? p.col - q.col : Math.max(0, q.col - p.col - 1)
+  return rows + cols
 }
 
 /**
