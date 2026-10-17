@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://building-chase.vercel.app/sitemap.xml

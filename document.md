@@ -332,4 +332,5 @@
 - **検索エンジンが読める本文**: ゲームの説明と遊び方を `index.html` に HTML として直接置く（JavaScript を実行しなくても読める）。ゲーム画面の表示後も内容は保持する
 - **クロール**: `sitemap.xml`、`robots.txt`、Google Search Console への登録
 - **表示速度**: Lighthouse の Performance / SEO / Accessibility を確認する
-- **アクセス解析**: 個人を特定しない方式（例: Vercel Web Analytics）。計測するのはページの閲覧、ゲーム開始、決着（陣営 / 勝敗）、再訪。利用をプライバシーポリシーのページに明記する
+- **アクセス解析**: Vercel Web Analytics（個人を特定せず Cookie も使わない。`src/analytics.ts`）。ページの閲覧と再訪は自動で数え、ゲーム開始（`game_start`: 陣営 / CPU の強さ）と決着（`game_end`: 陣営 / CPU の強さ / 勝者 / 決着の理由 / 人が勝ったか）をイベントとして送る（イベントの表示は Vercel の有料プランのみ）。利用をプライバシーポリシーのページ（`/privacy.html`）に明記する
+- **実装したもの（v0.10.4）**: タイトル・説明文・hreflang（日本語 `/`、英語 `/?lang=en`。URL の `lang` で言語を指定でき、設定として保存する）、OGP / X カード（`og-image.png` 1200×630）、構造化データ（VideoGame）、検索エンジン向けの本文（`index.html` の `.seo-text`。JavaScript が動くときは画面から隠し、読み上げと検索エンジンには残す。JavaScript なしでは表示する）、`sitemap.xml`・`robots.txt`。canonical は付けない（英語版を別のページとして扱うため）

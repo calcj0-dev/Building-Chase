@@ -74,7 +74,8 @@
     "off": "オフ",
     "quit": "ゲームをやめてタイトルへ",
     "quitConfirm": "このゲームを終了してタイトルに戻りますか？",
-    "quitYes": "終了する"
+    "quitYes": "終了する",
+    "privacy": "プライバシーポリシー"
   },
   "viewMode": {
     "front": "正面",

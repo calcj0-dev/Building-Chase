@@ -82,6 +82,12 @@ export function SettingsModal() {
           ))}
 
         <Button onClick={close}>{t('common.close')}</Button>
+        <a
+          href="/privacy.html"
+          className="text-center text-xs text-slate-400 underline underline-offset-2"
+        >
+          {t('settings.privacy')}
+        </a>
       </div>
     </div>
   )

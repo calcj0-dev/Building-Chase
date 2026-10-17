@@ -6,6 +6,12 @@ import ja from './locales/ja.json'
 
 export const DEFAULT_LANGUAGE: Language = 'ja'
 
+// URL の ?lang=en / ?lang=ja で言語を指定できる（検索結果や共有リンクから英語版を開くため）。
+// 指定があれば設定として保存する
+const requested =
+  typeof location !== 'undefined' ? new URLSearchParams(location.search).get('lang') : null
+if (requested === 'ja' || requested === 'en') useSettingsStore.getState().setLanguage(requested)
+
 void i18n.use(initReactI18next).init({
   resources: {
     ja: { translation: ja },

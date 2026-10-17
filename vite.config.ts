@@ -40,6 +40,8 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,webmanifest}'],
+        // 共有カードの画像はゲームでは使わないので、オフライン用に保存しない
+        globIgnores: ['**/og-image.png'],
         navigateFallback: '/index.html',
       },
     }),

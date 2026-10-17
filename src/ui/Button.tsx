@@ -3,9 +3,9 @@ import type { ReactNode } from 'react'
 type Variant = 'primary' | 'runner' | 'police' | 'subtle' | 'danger'
 
 const VARIANTS: Record<Variant, string> = {
-  primary: 'bg-sky-600 text-white shadow-lg shadow-sky-900/40 active:bg-sky-700',
+  primary: 'bg-sky-700 text-white shadow-lg shadow-sky-900/40 active:bg-sky-800',
   runner: 'bg-red-600 text-white shadow-lg shadow-red-900/50 active:bg-red-700',
-  police: 'bg-sky-600 text-white shadow-lg shadow-sky-900/50 active:bg-sky-700',
+  police: 'bg-sky-700 text-white shadow-lg shadow-sky-900/50 active:bg-sky-800',
   subtle: 'bg-slate-700/80 text-slate-200 active:bg-slate-700',
   danger: 'bg-red-700 text-white active:bg-red-800',
 }

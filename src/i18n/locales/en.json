@@ -74,7 +74,8 @@
     "off": "Off",
     "quit": "Quit to Title",
     "quitConfirm": "End this game and return to the title screen?",
-    "quitYes": "Quit"
+    "quitYes": "Quit",
+    "privacy": "Privacy policy"
   },
   "viewMode": {
     "front": "Front",

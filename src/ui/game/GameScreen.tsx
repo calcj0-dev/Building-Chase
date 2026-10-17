@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { trackGameEnd, trackGameStart } from '../../analytics'
 import { SEARCH_SCAN_SEC, audio, soundsForTransition } from '../../audio'
 import {
   FINAL_SEARCH_ROUND,
@@ -41,6 +42,12 @@ export function GameScreen() {
   const { game, humanSide } = store
   const cpuTurn = isCpuTurn(store)
   const viewMode = useSettingsStore((s) => s.viewMode)
+
+  // アクセス解析: ゲーム画面を開いたら（陣営選択・もう一度遊ぶ）ゲームの開始として数える
+  useEffect(() => {
+    const { humanSide: side, cpuLevel } = useGameStore.getState()
+    if (side) trackGameStart(side, cpuLevel)
+  }, [])
   const settingsOpen = useAppStore((s) => s.settingsOpen)
   const openSettings = useAppStore((s) => s.openSettings)
   const go = useAppStore((s) => s.go)
@@ -169,6 +176,8 @@ export function GameScreen() {
     if (!ended || settingsOpen || scanning) return
     const timer = setTimeout(() => {
       audio.play(lost ? 'defeat' : 'victory')
+      const { humanSide: side, cpuLevel, game: g } = useGameStore.getState()
+      if (side && g.winner && g.endReason) trackGameEnd(side, cpuLevel, g.winner, g.endReason)
       go('result')
     }, RESULT_DELAY_MS)
     return () => clearTimeout(timer)
@@ -216,7 +225,7 @@ export function GameScreen() {
                     ? 'bg-slate-700 text-slate-200'
                     : turn === 'runner'
                       ? 'bg-red-600 shadow-red-900/50'
-                      : 'bg-sky-600 shadow-sky-900/50'
+                      : 'bg-sky-700 shadow-sky-900/50'
                 }`}
               >
                 {cpuTurn && <span className="size-2 animate-pulse rounded-full bg-slate-300" />}
