@@ -110,6 +110,8 @@ export function Board({
   }, [mode])
   // 警察がヘリコプターを選んで、行き先（移動 / 捜索）を選んでいる最中
   const choosing = selectedHelicopter !== null
+  // ✓ / × を出している間は、選んだ行き先だけを明るく光らせ、ほかの候補は薄くして押せなくする
+  const pendingBuilding = pending?.type === 'search' ? pending.building : null
   const showRoute = view.phase === 'ended'
   // 答え合わせのルート: 痕跡（スタート地点から順）→ 最後にいたビル（痕跡はない）
   const route = showRoute
@@ -172,6 +174,7 @@ export function Board({
           mode={mode}
           id={id}
           highlighted={highlightedBuildings.includes(id)}
+          dimmed={pending !== null && id !== pendingBuilding}
           onTap={onTapBuilding}
         />
       ))}
@@ -208,7 +211,7 @@ export function Board({
           <SearchResultMark key={searchEffect.key} mode={mode} effect={searchEffect} />
         ))}
 
-      {choosing && (
+      {choosing && pending === null && (
         <ChoiceHitAreas
           mode={mode}
           highlightedBuildings={highlightedBuildings}
@@ -233,7 +236,15 @@ export function Board({
             selected={selected}
             // 選んでいる間: ほかのヘリコプターは描かれた部分だけで選び直せる。
             // 選んだヘリコプターは半透明にして、下の光るビルを押せるようタップを通す
-            hit={!selectable ? 'none' : !choosing ? 'wide' : selected ? 'none' : 'painted'}
+            hit={
+              !selectable || pending !== null
+                ? 'none'
+                : !choosing
+                  ? 'wide'
+                  : selected
+                    ? 'none'
+                    : 'painted'
+            }
             faded={choosing && selected}
             onTap={onTapHelicopter}
           />
@@ -351,6 +362,9 @@ const BUILDING_COLORS = {
   },
 }
 
+/** ✓ / × で別の行き先を確認している間の、ほかの候補の濃さ（光と目印） */
+const DIMMED_OPACITY = 0.3
+
 /** 右側の壁を手前の壁より暗くする（光は左上から） */
 const RIGHT_WALL_SHADE = 0.7
 
@@ -361,14 +375,18 @@ const RIGHT_WALL_SHADE = 0.7
 function Building({
   mode,
   id,
-  highlighted,
+  highlighted: lit,
+  dimmed,
   onTap,
 }: {
   mode: ViewMode
   id: BuildingId
   highlighted: boolean
+  /** 光っていても薄くして押せなくする（✓ / × で別の行き先を確認している間） */
+  dimmed: boolean
   onTap(id: BuildingId): void
 }) {
+  const highlighted = lit && !dimmed
   const { x0, x1, y0, y1, h } = buildingBox(id)
   const large = isLargeBuilding(id)
   const colors = large ? BUILDING_COLORS.large : BUILDING_COLORS.small
@@ -387,12 +405,12 @@ function Building({
       {showsRightWall(mode) && (
         <g transform={rightWall}>
           <Wall id={id} height={wallHeight} color={colors.wall} shade={RIGHT_WALL_SHADE} />
-          {highlighted && <WallGlow height={wallHeight} />}
+          {lit && <WallGlow height={wallHeight} dimmed={dimmed} />}
         </g>
       )}
       <g transform={frontWall}>
         <Wall id={id} height={wallHeight} color={colors.wall} shade={1} />
-        {highlighted && <WallGlow height={wallHeight} />}
+        {lit && <WallGlow height={wallHeight} dimmed={dimmed} />}
       </g>
       <g transform={roof}>
         {/* 屋上の外周（パラペット）と内側の床 */}
@@ -433,9 +451,10 @@ function Building({
             <rect x={FOOTPRINT - 22} y={10} width={11} height={9} rx={2} fill={colors.fixture} />
           </g>
         )}
-        {highlighted && (
+        {lit && (
           <rect
-            className="bc-glow"
+            className={dimmed ? undefined : 'bc-glow'}
+            opacity={dimmed ? DIMMED_OPACITY : 1}
             pointerEvents="none"
             x={-2}
             y={-2}
@@ -494,10 +513,11 @@ function Wall({
   )
 }
 
-function WallGlow({ height }: { height: number }) {
+function WallGlow({ height, dimmed }: { height: number; dimmed: boolean }) {
   return (
     <rect
-      className="bc-glow"
+      className={dimmed ? undefined : 'bc-glow'}
+      opacity={dimmed ? DIMMED_OPACITY : 1}
       pointerEvents="none"
       width={FOOTPRINT}
       height={height}
@@ -794,8 +814,13 @@ function ChoiceMarkers({
       )}
       {highlightedBuildings.map((id) => {
         const p = roofCenter(mode, id)
+        const dim = pending !== null && !(pending.type === 'search' && pending.building === id)
         return (
-          <g key={`sm${id}`} transform={`translate(${p.x}, ${p.y})`}>
+          <g
+            key={`sm${id}`}
+            transform={`translate(${p.x}, ${p.y})`}
+            opacity={dim ? DIMMED_OPACITY : 1}
+          >
             <circle r={13} fill="#451a03" fillOpacity={0.75} stroke="#fde68a" strokeWidth={2.5} />
             <circle cx={-2} cy={-2} r={5} fill="none" stroke="#fde68a" strokeWidth={2.5} />
             <path d="M 2 2 L 7 7" stroke="#fde68a" strokeWidth={3} strokeLinecap="round" />
@@ -807,8 +832,14 @@ function ChoiceMarkers({
         const o = from === null ? g : intersectionGround(mode, from)
         // 選んだヘリコプターから離れる向きの矢印
         const angle = (Math.atan2(g.y - o.y, g.x - o.x) * 180) / Math.PI
+        const dim = pending !== null && !(pending.type === 'move' && pending.intersection === id)
         return (
-          <g key={`mm${id}`} className="bc-glow" transform={`translate(${g.x}, ${g.y})`}>
+          <g
+            key={`mm${id}`}
+            className={dim ? undefined : 'bc-glow'}
+            transform={`translate(${g.x}, ${g.y})`}
+            opacity={dim ? DIMMED_OPACITY : 1}
+          >
             <circle r={17} fill="#38bdf8" fillOpacity={0.35} stroke="#7dd3fc" strokeWidth={4} />
             <path
               d="M -6 -6 L 4 0 L -6 6"

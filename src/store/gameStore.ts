@@ -21,7 +21,10 @@ import {
 /** 人が操作する陣営。both は1台の端末で2人が交代で遊ぶ（ホットシート） */
 export type HumanSide = Role | 'both'
 
-/** 警察が選んだ行き先（✓ で決定、× でやめる。押し間違いを防ぐため、タップしてすぐには行動しない） */
+/**
+ * 警察が選んだ行き先（✓ で決定、× でやめる。押し間違いを防ぐため、タップしてすぐには行動しない）。
+ * ✓ / × を出している間は、ほかの行き先やヘリコプターのタップは受け付けない（選び直すときは ×）
+ */
 export type PendingPoliceAction =
   { type: 'move'; intersection: IntersectionId } | { type: 'search'; building: BuildingId }
 
@@ -159,6 +162,7 @@ export function reduceStore(s: GameStoreState, event: StoreEvent): GameStoreStat
     }
 
     case 'tapHelicopter':
+      if (s.pending !== null) return s
       if (!selectableHelicopters(s).includes(event.helicopter)) return s
       if (s.selectedHelicopter === event.helicopter) {
         return { ...s, selectedHelicopter: null, pending: null }
@@ -166,6 +170,7 @@ export function reduceStore(s: GameStoreState, event: StoreEvent): GameStoreStat
       return { ...s, selectedHelicopter: event.helicopter, pending: null }
 
     case 'tapIntersection': {
+      if (s.pending !== null) return s
       if (!highlightedIntersections(s).includes(event.intersection)) return s
       const helicopter = nextHelicopterToPlace(s.game)
       if (helicopter !== null) {
@@ -176,6 +181,7 @@ export function reduceStore(s: GameStoreState, event: StoreEvent): GameStoreStat
     }
 
     case 'tapBuilding': {
+      if (s.pending !== null) return s
       if (!highlightedBuildings(s).includes(event.building)) return s
       if (s.game.phase === 'hide' || s.game.phase === 'runner') {
         return dispatch(s, { type: 'runnerMove', building: event.building })

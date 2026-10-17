@@ -133,7 +133,7 @@ describe('police turn', () => {
     expect(highlightedBuildings(s)).toEqual([])
   })
 
-  it('waits for a check before acting, and lets the player cancel or change the target', () => {
+  it('waits for a check before acting, and lets the player cancel to change the target', () => {
     let s = run(
       [
         { type: 'tapHelicopter', helicopter: 0 },
@@ -143,29 +143,40 @@ describe('police turn', () => {
     )
     expect(s.pending).toEqual({ type: 'search', building: 6 })
     expect(s.game.searchLog).toEqual([])
-    // 別の行き先を選び直す
-    s = run([{ type: 'tapIntersection', intersection: 1 }], s)
-    expect(s.pending).toEqual({ type: 'move', intersection: 1 })
-    // × でやめる（ヘリコプターは選んだまま）
+    // ✓ / × を出している間は、ほかの行き先やヘリコプターを押しても変わらない
+    s = run(
+      [
+        { type: 'tapIntersection', intersection: 1 },
+        { type: 'tapBuilding', building: 5 },
+        { type: 'tapHelicopter', helicopter: 1 },
+        { type: 'tapHelicopter', helicopter: 0 },
+      ],
+      s,
+    )
+    expect(s.pending).toEqual({ type: 'search', building: 6 })
+    expect(s.selectedHelicopter).toBe(0)
+    // × でやめる（ヘリコプターは選んだまま）と、別の行き先を選べる
     s = run([{ type: 'cancelPending' }], s)
     expect(s.pending).toBeNull()
     expect(s.selectedHelicopter).toBe(0)
+    s = run([{ type: 'tapIntersection', intersection: 1 }], s)
+    expect(s.pending).toEqual({ type: 'move', intersection: 1 })
+    s = run([{ type: 'cancelPending' }], s)
     // 戻る: 行き先があればそれをやめ、なければ選択を解除
     s = run([{ type: 'tapBuilding', building: 5 }, { type: 'cancelSelection' }], s)
     expect(s.pending).toBeNull()
     expect(s.selectedHelicopter).toBe(0)
     s = run([{ type: 'cancelSelection' }], s)
     expect(s.selectedHelicopter).toBeNull()
-    // 別のヘリコプターを選ぶと行き先は消える
+    // 行き先を選ぶ前なら、別のヘリコプターに選び直せる
     s = run(
       [
         { type: 'tapHelicopter', helicopter: 0 },
-        { type: 'tapBuilding', building: 6 },
         { type: 'tapHelicopter', helicopter: 1 },
       ],
       s,
     )
-    expect(s.pending).toBeNull()
+    expect(s.selectedHelicopter).toBe(1)
     expect(run([{ type: 'confirmPending' }], s).game.searchLog).toEqual([])
   })
 
