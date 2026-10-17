@@ -342,9 +342,10 @@ describe('CPU vs CPU', () => {
     }
     const strong = runnerWins({ police: 'strong', runner: 'strong' })
     const normalPolice = runnerWins({ police: 'normal', runner: 'strong' })
-    const normalRunner = runnerWins({ police: 'strong', runner: 'normal' })
+    // 強い警察には逃亡者がほとんど勝てないので、逃亡者の強さの差は普通の警察を相手に比べる
+    const normalRunner = runnerWins({ police: 'normal', runner: 'normal' })
     console.info('Runner wins / 100:', { strong, normalPolice, normalRunner })
     expect(normalPolice).toBeGreaterThan(strong + 15)
-    expect(normalRunner).toBeLessThan(strong)
+    expect(normalRunner).toBeLessThan(normalPolice - 5)
   })
 })

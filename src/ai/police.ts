@@ -42,30 +42,39 @@ export interface PoliceWeights {
   backtrackPenalty: number
   /** 直近 REPEAT_SEARCH_ROUNDS ラウンドに「何もない」だったビルをまた捜索するときに引く値 */
   repeatSearchPenalty: number
+  /**
+   * まだ見つかっていない足跡がありそうなビル（逃亡者が過去に通った確率）を捜索する価値。
+   * 足跡を見つけると、その隣（次の足跡か、逃亡者がいる場所）を探すので、足跡をたどる動きになる
+   */
+  traceSeek: number
 }
 
 /** 「何もない」だったビルの捜索を避ける期間（ラウンド数。今のラウンドを含む） */
 const REPEAT_SEARCH_ROUNDS = 3
 
 // 強い警察: CPU同士の対戦で比較し、複数の逃亡者の戦略に対して安定して強かった値。
-// searchCost 0.3 で行動の約3割が移動になる（0 のときは約1割で、むしろ弱かった。0.35 を超えると急に弱くなる）。
+// 足跡がありそうなビルも捜索の価値に入れ（traceSeek）、見つけた足跡をたどるように探す（0.3〜0.6 で最も強かった）。
+// searchCost 0.4 で行動の約3割が移動になる。
 // 「何もない」だったビルの再捜索は推理上は意味があることも多いので、点数は少しだけ下げる
 export const DEFAULT_POLICE_WEIGHTS: PoliceWeights = {
   future: 1.5,
   info: 0.3,
   futureMode: 'sum',
-  searchCost: 0.3,
+  searchCost: 0.4,
   backtrackPenalty: 0.3,
   repeatSearchPenalty: 0.05,
+  traceSeek: 0.6,
 }
 
-// 普通の警察: 捜索の手間を大きくして移動を増やし（行動の約半分）、「何もない」だったビルの再捜索を避ける。
+// 普通の警察: 捜索の手間を大きくして移動を増やし（行動の4〜5割）、「何もない」だったビルの再捜索を避ける。
 // 推理そのものは強い警察と同じ（以前の「忘れる」「ときどき適当に動く」手加減は、行ったり来たりや
 // 同じビルの捜索の繰り返しに見えたのでやめた）
 export const NORMAL_POLICE_WEIGHTS: PoliceWeights = {
   ...DEFAULT_POLICE_WEIGHTS,
-  searchCost: 0.38,
+  searchCost: 0.6,
   repeatSearchPenalty: 0.5,
+  // 足跡を強く追いかける（人から見て推理が分かりやすい。古い足跡まで追うので少し弱くなる）
+  traceSeek: 1,
 }
 
 const POLICE_WEIGHTS: Record<CpuLevel, PoliceWeights> = {
@@ -155,6 +164,7 @@ function helicopterOptions(
       action: { type: 'policeSearch', helicopter, building } as Action,
       score:
         belief.here[building] +
+        weights.traceSeek * belief.visited[building] +
         weights.info * outcomeEntropy(belief.here[building], belief.visited[building]) +
         weights.future * future(at) -
         weights.searchCost -
