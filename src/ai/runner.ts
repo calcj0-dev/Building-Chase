@@ -48,6 +48,16 @@ export function chooseRunnerAction(
     throw new Error(`Runner cannot act in phase ${state.phase}`)
   }
   const targets = runnerMoveTargets(state)
+  // スタート地点: 毎回同じ場所（角など）にならないよう、Round 1 にどのヘリコプターも捜索できないビルから
+  // ランダムに選ぶ（なければ全部から）。点数で選ぶと、角や端にほぼ決まってしまい読まれやすかった
+  if (state.phase === 'hide') {
+    const watched = new Set(
+      state.helicopters.flatMap((i) => (i === null ? [] : BUILDINGS_AROUND_INTERSECTION[i])),
+    )
+    const safe = targets.filter((b) => !watched.has(b))
+    const pool = safe.length > 0 ? safe : targets
+    return { type: 'runnerMove', building: pool[Math.floor(rng() * pool.length)] }
+  }
   if (level === 'normal' && rng() < NORMAL_RUNNER_MISTAKE_RATE) {
     return { type: 'runnerMove', building: targets[Math.floor(rng() * targets.length)] }
   }

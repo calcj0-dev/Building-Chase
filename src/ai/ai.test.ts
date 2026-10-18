@@ -341,6 +341,20 @@ describe('runner AI', () => {
     }
   })
 
+  it.each(CPU_LEVELS)('varies the start point instead of always picking a corner (%s)', (level) => {
+    const starts = new Set<number>()
+    let corners = 0
+    for (let seed = 1; seed <= 100; seed++) {
+      const action = chooseRunnerAction(placeAll([5, 6, 9]), seededRng(seed), level)
+      if (action.type !== 'runnerMove') throw new Error('unexpected action')
+      starts.add(action.building)
+      if ([0, 4, 20, 24].includes(action.building)) corners++
+    }
+    // 交差点 5, 6, 9 に接していないビルは 17 棟（うち角 4 棟）
+    expect(starts.size).toBeGreaterThanOrEqual(12)
+    expect(corners).toBeLessThan(40)
+  })
+
   it('does not walk into a dead end when another way exists', () => {
     // 5 に隠れて 6 → 1 と動いた後、0 に入ると包囲される。2 なら逃げ続けられる
     const s = searchAll(playRounds(placeAll([15, 12, 3]), [5, 6, 1], IDLE_SEARCHES), IDLE_SEARCHES)
