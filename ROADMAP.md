@@ -182,7 +182,7 @@
 - [x] 構造化データ（schema.org の VideoGame）
 - [x] 検索エンジンが読める本文（ゲームの説明・遊び方を HTML に直接置く。JavaScript なしでも読める）
 - [x] sitemap.xml / robots.txt
-- [ ] Google Search Console への登録とインデックス確認（Google アカウントでの操作が必要）
+- [ ] Google Search Console への登録とインデックス確認（v0.10.6 で確認用のタグを追加。所有権の確認とサイトマップの送信は Search Console で行う）
 - [x] 独自ドメインの検討 → 今は `building-chase.vercel.app` のまま公開する（2026-10-17）
 
 ### 公開と反響の計測
