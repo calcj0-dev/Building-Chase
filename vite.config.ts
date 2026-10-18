@@ -15,8 +15,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icon.svg', 'apple-touch-icon.png'],
       manifest: {
-        name: 'Building Chase',
-        short_name: 'Building Chase',
+        name: 'シティチェイス（City Chase）',
+        short_name: 'シティチェイス',
         description: 'ビル街で繰り広げる、推理の鬼ごっこ',
         lang: 'ja',
         start_url: '/',

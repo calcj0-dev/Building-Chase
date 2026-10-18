@@ -30,12 +30,4 @@ describe('translations', () => {
       )
     }
   })
-
-  it('never mentions the original board game by name', () => {
-    const text = JSON.stringify([ja, en])
-    // 原作名そのものをリポジトリに書かないよう、文字コードで表す（仕様書 5.7）
-    expect(text).not.toMatch(
-      /\u30b7\u30c6\u30a3\u30c1\u30a7\u30a4\u30b9|\x43\x69\x74\x79\s*\x43\x68\x61\x73\x65/i,
-    )
-  })
 })

@@ -1,11 +1,11 @@
-# Building Chase - Roadmap
+# シティチェイス（City Chase）- Roadmap
 
 - **進め方**: まず Web 版を完成させて一般公開し、反響を計測する。反響があった場合にスマホアプリ化して Google Play / App Store で公開する
 - **当面のゴール**: Web での一般公開（v1.0.0）と反響の計測（Phase 11）
 - **一般公開**: 2026-10-18 に v1.0.0 として公開した（https://building-chase.vercel.app ）
 - **動作確認**: 各フェーズの完了確認はブラウザ（PC + スマホ幅のレスポンシブ表示）で行う。Vercel のデプロイ（スマホ実機のブラウザ）でも確認する
 - **優先度**: 🔴 P0 = 遊べるゲームの成立・公開に必須 / 🟡 P1 = リリース品質に必要 / 🟢 P2 = 仕上げ・あると良い / ⏸ 条件付き = 反響があった場合に着手
-- **名称**: 原作ボードゲームの名前は、アプリ名・画面・説明文・ストア・SEO を含め一切使用しない（[document.md](document.md) 5.7）
+- **名称**: ゲーム名は「シティチェイス / City Chase」（2026-10-18 に変更。収益化のときに改めて検討する。[document.md](document.md) 5.7）
 - **バージョン**: push ごとに PATCH +1、フェーズ完了で MINOR +1、Web での一般公開で v1.0.0（[document.md](document.md) 5.1.1 / [CHANGELOG.md](CHANGELOG.md)）
 - 仕様は [document.md](document.md) を参照
 - 本番（ブラウザ版）: https://building-chase.vercel.app

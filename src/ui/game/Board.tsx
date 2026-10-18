@@ -127,7 +127,7 @@ export function Board({
       viewBox={viewBox(mode)}
       className={`touch-manipulation select-none ${className || 'h-auto w-full'}`}
       role="img"
-      aria-label="Building Chase board"
+      aria-label="City Chase board"
     >
       <defs>
         <linearGradient id="bc-plate" x1="0" y1="0" x2="0" y2="1">

@@ -28,7 +28,7 @@ export function TitleScreen() {
         v{version}
       </span>
       <h1 className="text-center text-5xl leading-none font-black tracking-tight">
-        <span className="block text-slate-100">BUILDING</span>
+        <span className="block text-slate-100">CITY</span>
         <span className="block bg-gradient-to-r from-red-400 via-amber-300 to-sky-400 bg-clip-text text-transparent">
           CHASE
         </span>
