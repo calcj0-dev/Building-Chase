@@ -137,6 +137,33 @@ describe('police AI', () => {
     },
   )
 
+  it.each(CPU_LEVELS)(
+    'does not know the number of a blue trace, only when it was found (%s)',
+    (level) => {
+      // ヘリコプター: 交差点12（ビル 15, 16, 20, 21）/ 15（18, 19, 23, 24）/ 1（1, 2, 6, 7）
+      // A: 1 → 6 → 7 → 8（ビル6 の足跡は2番目） / B: 0 → 1 → 6 → 7（ビル6 の足跡は3番目）
+      const idle: [number, number, number] = [20, 24, 2]
+      const findSix = (path: number[]) => {
+        const s = playRounds(placeAll([12, 15, 1]), path, idle)
+        return [
+          { type: 'policeSearch', helicopter: 0, building: 20 },
+          { type: 'policeSearch', helicopter: 2, building: 6 },
+        ].reduce((g, a) => applyAction(g, a as Action), s)
+      }
+      const a = findSix([1, 6, 7, 8])
+      const b = findSix([0, 1, 6, 7])
+      expect(a.traces.find((t) => t.building === 6)?.round).toBe(2)
+      expect(b.traces.find((t) => t.building === 6)?.round).toBe(3)
+      // 警察から見ると同じ（青い足跡の番号は見えない）ので、同じように行動する
+      expect(getView(a, 'police')).toEqual(getView(b, 'police'))
+      for (let seed = 1; seed <= 10; seed++) {
+        expect(choosePoliceAction(getView(a, 'police'), seededRng(seed), level)).toEqual(
+          choosePoliceAction(getView(b, 'police'), seededRng(seed), level),
+        )
+      }
+    },
+  )
+
   it('refuses to work from the runner view', () => {
     const s = hideAt(placeAll([5, 6, 9]), 0)
     expect(() => choosePoliceAction(getView(s, 'runner'), seededRng(1))).toThrow()
@@ -408,7 +435,7 @@ describe('CPU vs CPU', () => {
     // 強い警察には逃亡者がほとんど勝てないので、逃亡者の強さの差は普通の警察を相手に比べる
     const normalRunner = runnerWins({ police: 'normal', runner: 'normal' })
     console.info('Runner wins / 100:', { strong, normalPolice, normalRunner })
-    expect(normalPolice).toBeGreaterThan(strong + 15)
+    expect(normalPolice).toBeGreaterThan(strong + 10)
     expect(normalRunner).toBeLessThan(normalPolice - 5)
   })
 })

@@ -65,8 +65,9 @@ const REPEAT_SEARCH_ROUNDS = 3
 // 足跡がありそうなビルも捜索の価値に入れ（traceSeek）、見つけた足跡をたどるように探す（0.3〜0.6 で最も強かった）。
 // searchCost 0.4 で行動の約3割が移動になる。
 // 「何もない」だったビルの再捜索は推理上は意味があることも多いので、点数は少しだけ下げる。
-// 見つけた足跡の隣を追いかけること（trailSearch / trailMove）はしない。足跡（黄・赤以外）は
-// 「いつか通った」ことしか分からず、見つけたときには逃亡者は離れていることが多いので、追うと大きく弱くなった
+// 見つけた足跡の隣も追いかける（trailSearch / trailMove）。足跡（黄・赤以外）は「いつか通った」ことしか
+// 分からず、見つけたときには逃亡者は離れていることが多いので、追うほど弱くなる。その強さで勝率を合わせる:
+// 警察の勝率の目安は 強い 60〜70% / 普通 40〜50%（CPU の強い逃亡者を相手に）
 export const DEFAULT_POLICE_WEIGHTS: PoliceWeights = {
   future: 1.5,
   info: 0.3,
@@ -75,8 +76,9 @@ export const DEFAULT_POLICE_WEIGHTS: PoliceWeights = {
   backtrackPenalty: 0.3,
   repeatSearchPenalty: 0.05,
   traceSeek: 0.6,
-  trailSearch: 0,
-  trailMove: 0,
+  // 見つけた足跡の続きも追う（人から見て推理が分かりやすい。追うほど弱くなるので、勝率で調整した）
+  trailSearch: 0.5,
+  trailMove: 1,
 }
 
 // 普通の警察: 捜索の手間を大きくして移動を増やし（行動の約4割）、「何もない」だったビルの再捜索を避け、
@@ -90,7 +92,7 @@ export const NORMAL_POLICE_WEIGHTS: PoliceWeights = {
   // 人の刑事のように、足跡を見つけたらその隣を捜索し、離れたヘリコプターも近づいてくる
   // （人から見て推理が分かりやすい。逃亡者がもう離れていても追うので、少し弱くなる）
   trailSearch: 1.5,
-  trailMove: 0.5,
+  trailMove: 1.5,
 }
 
 const POLICE_WEIGHTS: Record<CpuLevel, PoliceWeights> = {
