@@ -55,6 +55,9 @@ export interface PoliceWeights {
   trailMove: number
 }
 
+/** 同じ交差点に留まれるターン数。これだけ留まったら、次のターンは必ず移動する（最後の捜索と、移動先がないときを除く） */
+export const MAX_STAY_TURNS = 3
+
 /** 足跡の続きへ近づく価値が、1歩遠くなるごとに何倍になるか */
 const TRAIL_DECAY = 0.5
 
@@ -72,13 +75,13 @@ export const DEFAULT_POLICE_WEIGHTS: PoliceWeights = {
   future: 1.5,
   info: 0.3,
   futureMode: 'sum',
-  searchCost: 0.4,
+  searchCost: 0.2,
   backtrackPenalty: 0.3,
   repeatSearchPenalty: 0.05,
   traceSeek: 0.6,
   // 見つけた足跡の続きも追う（人から見て推理が分かりやすい。追うほど弱くなるので、勝率で調整した）
   trailSearch: 0.5,
-  trailMove: 1,
+  trailMove: 0.5,
 }
 
 // 普通の警察: 捜索の手間を大きくして移動を増やし（行動の約4割）、「何もない」だったビルの再捜索を避け、
@@ -87,12 +90,12 @@ export const DEFAULT_POLICE_WEIGHTS: PoliceWeights = {
 // 同じビルの捜索の繰り返しに見えたのでやめた）
 export const NORMAL_POLICE_WEIGHTS: PoliceWeights = {
   ...DEFAULT_POLICE_WEIGHTS,
-  searchCost: 0.5,
+  searchCost: 0.2,
   repeatSearchPenalty: 0.5,
   // 人の刑事のように、足跡を見つけたらその隣を捜索し、離れたヘリコプターも近づいてくる
   // （人から見て推理が分かりやすい。逃亡者がもう離れていても追うので、少し弱くなる）
   trailSearch: 1.5,
-  trailMove: 1.5,
+  trailMove: 2.5,
 }
 
 const POLICE_WEIGHTS: Record<CpuLevel, PoliceWeights> = {
@@ -119,9 +122,15 @@ export function choosePoliceAction(
 
   const belief = inferRunner(view)
   const waiting = HELICOPTERS.filter((helicopter) => !view.actedHelicopters[helicopter])
-  let options = waiting.flatMap((helicopter) =>
-    helicopterOptions(view, helicopter, belief, weights),
-  )
+  let options = waiting.flatMap((helicopter) => {
+    const own = helicopterOptions(view, helicopter, belief, weights)
+    // 同じ場所に MAX_STAY_TURNS ターン留まったら、このターンは移動する
+    if (view.round < FINAL_SEARCH_ROUND && stayedTurns(view, helicopter) >= MAX_STAY_TURNS) {
+      const moves = own.filter((o) => o.action.type === 'policeMove')
+      if (moves.length > 0) return moves
+    }
+    return own
+  })
   // 移動ばかりで推理が進まなくならないよう、各ラウンドで最低1回は捜索する
   const searchedThisRound = view.searchLog.some((s) => s.round === view.round)
   // （痕跡を見つけたビルばかりで捜索できるビルがないときは除く）
@@ -130,6 +139,15 @@ export function choosePoliceAction(
     if (searches.length > 0) options = searches
   }
   return pickBest(options, (o) => o.score, rng).action
+}
+
+/**
+ * ヘリコプターが今の交差点で、移動せずに行動したターン数（前のラウンドまで）。
+ * 最後に移動したラウンド（一度も移動していなければ配置した 0 ラウンド）の次から数える
+ */
+export function stayedTurns(view: GameView, helicopter: HelicopterIndex): number {
+  const lastMove = view.moveLog.findLast((m) => m.helicopter === helicopter)
+  return view.round - 1 - (lastMove?.round ?? 0)
 }
 
 /** 捜索結果（車 / 痕跡 / 何もない）のエントロピー。結果が読めないビルほど調べる価値がある */

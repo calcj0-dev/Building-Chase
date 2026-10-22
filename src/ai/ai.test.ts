@@ -22,6 +22,7 @@ import {
   seededRng,
   type CpuLevel,
 } from '.'
+import { stayedTurns } from './police'
 
 // ビル ID           交差点 ID
 //  0  1  2  3  4      0  1  2  3
@@ -211,14 +212,43 @@ describe('police AI: moving and searching', () => {
     return moves / (moves + searches)
   }
 
-  it('moves as well as searches (strong: about a third, normal: about half)', () => {
-    const strong = moveShare('strong')
-    const normal = moveShare('normal')
-    console.info('Police move share:', { strong, normal })
-    expect(strong).toBeGreaterThan(0.2)
-    expect(strong).toBeLessThan(0.45)
-    expect(normal).toBeGreaterThan(0.35)
-    expect(normal).toBeLessThan(0.65)
+  it('searches 2 to 3 times as often as it moves', () => {
+    for (const level of CPU_LEVELS) {
+      const share = moveShare(level)
+      console.info(`Police move share (${level}):`, share)
+      // 捜索:移動 = 3:1〜2:1 → 移動は 25〜33%（少しゆとりを持たせる）
+      expect(share).toBeGreaterThan(0.22)
+      expect(share).toBeLessThan(0.37)
+    }
+  })
+
+  it.each(CPU_LEVELS)('never stays at the same intersection for 4 turns (%s)', (level) => {
+    for (let seed = 700; seed < 730; seed++) {
+      const rng = seededRng(seed)
+      let s = createGame()
+      while (s.phase !== 'ended') {
+        if (s.phase === 'police' && s.round < 12) {
+          const view = getView(s, 'police')
+          for (const h of [0, 1, 2] as const) {
+            if (!view.actedHelicopters[h]) expect(stayedTurns(view, h)).toBeLessThanOrEqual(3)
+          }
+        }
+        s = applyAction(s, chooseCpuAction(s, rng, currentRole(s) === 'police' ? level : 'strong'))
+      }
+    }
+  })
+
+  it('moves a helicopter that has stayed for 3 turns', () => {
+    // 交差点 0, 3, 15 から動かずに3ラウンド捜索した後（逃亡者は 6 → 7 → 8 → 13）
+    const s = playRounds(placeAll([0, 3, 15]), [6, 7, 8, 13], [0, 4, 24])
+    expect(s.round).toBe(4)
+    const view = getView(s, 'police')
+    expect(stayedTurns(view, 0)).toBe(3)
+    for (const level of CPU_LEVELS) {
+      for (let seed = 1; seed <= 10; seed++) {
+        expect(choosePoliceAction(view, seededRng(seed), level).type).toBe('policeMove')
+      }
+    }
   })
 
   it('normal police chase a found trace: they search next to it and move closer', () => {
